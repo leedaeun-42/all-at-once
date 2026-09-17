@@ -1,0 +1,569 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="description" content="선택하고, 점프하고, 무너지고, 돌아오는 인터랙티브 전시">
+<title>한꺼번에, 모든 곳에</title>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bytesized&family=Noto+Sans+KR:wght@400;700&display=swap">
+<style>
+  :root {
+    --paper: #F2F2F2;
+    --ink: #1D1D1F;
+    --black: #000000;
+    --white: #FFFFFF;
+    --g100: #EBEBEB;
+    --g300: #CCCCCC;
+    --g400: #BABABA;
+    --g700: #646464;
+    --g900: #212121;
+    --pixel: 'Bytesized', 'Courier New', monospace;
+    --body: -apple-system, 'SF Pro Text', 'Apple SD Gothic Neo', 'Pretendard', 'Noto Sans KR', sans-serif;
+    --header-h: 56px;
+  }
+  html, body { height: 100%; }
+  body {
+    margin: 0;
+    background: var(--black);
+    color: var(--g400);
+    font-family: var(--body);
+    font-size: 15px;
+    line-height: 1.6;
+    word-break: keep-all;
+    overflow-wrap: anywhere;
+    overflow: hidden;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; }
+  button { font: inherit; color: inherit; cursor: pointer; }
+  button:focus-visible, input:focus-visible { outline: 2px solid currentColor; outline-offset: 3px; }
+
+  /* ── header: BRAND · ■ LABEL ── */
+  #hdr {
+    color: var(--g300);
+    position: fixed; inset: 0 0 auto 0; height: calc(var(--header-h) + env(safe-area-inset-top, 0px));
+    padding: calc(20px + env(safe-area-inset-top, 0px)) 24px 0;
+    display: grid; grid-template-columns: 1fr 1fr auto; align-items: start; gap: 16px;
+    font-family: var(--pixel); font-size: 17px; letter-spacing: .3px; line-height: 1;
+    z-index: 10; pointer-events: none;
+  }
+  #hdr .sq { display: inline-block; width: 9px; height: 9px; background: currentColor; margin-right: 8px; vertical-align: 1px; }
+  #hdr #count { font-variant-numeric: tabular-nums; text-align: right; }
+  #hdr #count small { display: block; font-family: var(--pixel); font-size: 12px; opacity: .55; margin-top: 4px; }
+
+  /* ── stage ── */
+  #stage { position: absolute; inset: 0; }
+  .ch { position: absolute; inset: 0; top: calc(var(--header-h) + env(safe-area-inset-top, 0px)); display: none; padding: 24px 24px calc(24px + env(safe-area-inset-bottom, 0px)); overflow-y: auto; }
+  .ch.on { display: block; }
+  .wrap { max-width: 880px; margin: 0 auto; min-height: 100%; display: flex; flex-direction: column; gap: 28px; padding-block: 24px 40px; }
+  .lead { max-width: 34em; }
+  .lead p { margin: 0 0 .9em; }
+  .lead p:last-child { margin-bottom: 0; }
+  .lead .bold { font-weight: 700; color: var(--g100); }
+  .dim { opacity: .45; }
+  h1 { color: var(--g100); font-family: var(--body); font-weight: 700; font-size: clamp(32px, 8.6vw, 84px); line-height: 1.08; margin: 0; letter-spacing: -.03em; white-space: nowrap; }
+  .kicker { font-family: var(--pixel); font-size: 17px; letter-spacing: .3px; opacity: .55; }
+  h2 { color: var(--g100); font-size: clamp(22px, 3.2vw, 32px); font-weight: 700; line-height: 1.3; margin: 0; letter-spacing: -.01em; text-wrap: balance; }
+  .label { font-family: var(--pixel); font-size: 15px; letter-spacing: .3px; }
+  .label .ko { font-family: var(--body); font-size: 12px; font-weight: 700; margin-left: 10px; letter-spacing: 0; }
+
+  /* ── buttons: white box, ink text (light) / ink box on dark ── */
+  .btn {
+    background: var(--white); color: var(--ink); border: 0; padding: 16px 28px; font-weight: 700; font-size: 14px;
+    text-align: left; line-height: 1.4; transition: transform .12s ease;
+  }
+  .btn:hover { transform: translateY(-2px); }
+  .btn:active { transform: translateY(0); }
+  .btn.ink { background: var(--black); color: var(--white); }
+  .btn { background: var(--g900); color: var(--white); }
+  .btn.ink { background: var(--g100); color: var(--ink); }
+  .btn[disabled] { opacity: .35; cursor: default; transform: none; }
+  .row { display: flex; flex-wrap: wrap; gap: 12px; }
+
+  /* ── pixel speech bubble ── */
+  .bub { position: relative; background: var(--g100); color: var(--ink); padding: 20px 30px; max-width: 320px; font-size: 14px; line-height: 1.45; }
+  .bub .t { position: absolute; left: -34px; bottom: -30px; width: 52px; height: 60px; pointer-events: none; }
+  .bub .t i { position: absolute; width: 17px; height: 15px; background: var(--g100); }
+  .bub .t i:nth-child(1) { left: 22px; top: 0; }
+  .bub .t i:nth-child(2) { left: 0; top: 13px; }
+  .bub .t i:nth-child(3) { left: 5px; top: 37px; }
+  .bub { margin-bottom: 30px; }
+  .bub .yes { font-weight: 700; display: block; margin-bottom: 4px; }
+  .bub .fade { color: rgba(29,29,31,.35); }
+  .bub .more { color: rgba(29,29,31,.16); font-weight: 700; }
+
+  /* ── block figure ── */
+  .fig { display: grid; justify-items: center; width: calc(182px * var(--u, 1)); gap: 0; --c: var(--black); }
+  .fig i { display: block; background: var(--c); }
+  .fig .h { width: calc(98px * var(--u, 1)); height: calc(98px * var(--u, 1)); position: relative; }
+  .fig .n { width: calc(43px * var(--u, 1)); height: calc(43px * var(--u, 1)); }
+  .fig .b { width: calc(182px * var(--u, 1)); height: calc(182px * var(--u, 1)); }
+  .fig { --c: var(--g400); }
+  .fig.ghost { --c: var(--g700); }
+  .fig.sm { transform: scale(.28); transform-origin: top left; width: 51px; height: 91px; }
+  .fig.sm i { position: relative; }
+  .eye { position: absolute; width: calc(30px * var(--u, 1)); height: calc(30px * var(--u, 1)); border-radius: 50%; background: var(--white); left: calc(44px * var(--u, 1)); top: calc(18px * var(--u, 1)); display: none; box-shadow: 0 0 0 2px var(--black); }
+  .eye::after { content: ''; position: absolute; width: 46%; height: 46%; border-radius: 50%; background: var(--black); left: 30%; top: 33%; }
+  .fig.eyed .eye { display: block; }
+
+  /* ── chapter 1: branches ── */
+  #ghosts { display: flex; flex-wrap: wrap; gap: 6px; align-content: flex-start; min-height: 96px; }
+  #ghosts .fig.sm { opacity: 0; animation: pop .35s ease forwards; }
+  @keyframes pop { to { opacity: 1; } }
+  .qbox { display: grid; grid-template-columns: 1fr; gap: 20px; }
+  .qbox .choice { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; max-width: 640px; }
+  .qbox .btn { min-height: 76px; }
+  .qbox .btn, #enemyBtns .btn { background: var(--g100); color: var(--ink); }
+  .note { font-size: 13px; opacity: .55; max-width: 34em; }
+  .scene { display: flex; gap: 48px; align-items: flex-start; flex-wrap: wrap; }
+  .scene .bub { margin-top: 12px; }
+  #bagelIntro, #bagelIn, #waymond { display: grid; gap: 28px; }
+
+  /* ── chapter 2: verse jump ── */
+  .jump-card { background: var(--g900); padding: 28px; display: grid; gap: 18px; max-width: 640px; }
+  .jump-card .task { font-weight: 700; font-size: 17px; color: var(--g100); }
+  #tap { width: 100%; min-height: 120px; background: var(--g100); color: var(--ink); border: 0; font-family: var(--pixel); font-size: 34px; }
+  #rev { width: 100%; padding: 16px; border: 0; background: var(--g100); color: var(--ink); font: inherit; font-size: 18px; letter-spacing: .1em; }
+  .meter { height: 6px; background: var(--g700); position: relative; overflow: hidden; }
+  .meter b { position: absolute; inset: 0 auto 0 0; width: 0; background: var(--g300); transition: width .1s linear; }
+  .verse { display: grid; gap: 22px; max-width: 700px; }
+  .verse .vname { font-family: var(--pixel); font-size: 22px; color: var(--g100); }
+  .verse .vname .ko { font-family: var(--body); font-size: 15px; font-weight: 700; margin-left: 12px; }
+  .verse p { margin: 0; }
+  .rocks { display: flex; gap: 60px; align-items: flex-end; padding: 20px 0 0; }
+  .rock { width: 120px; height: 84px; background: var(--g400); }
+  .rock.s { width: 70px; height: 52px; background: var(--g700); }
+  .sub { font-size: 13px; opacity: .8; }
+  .hotdog { display: flex; gap: 8px; }
+  .hotdog i { width: 18px; height: 70px; background: var(--g300); border-radius: 9px; }
+  .hotdog i:nth-child(odd) { background: var(--g700); }
+
+  /* ── chapter 3: bagel ── */
+  #bagelWrap { position: relative; height: 260px; max-width: 720px; overflow: hidden; }
+  #bagel { position: absolute; left: 50%; top: 50%; width: 0; height: 0; border-radius: 50%; border: 0 solid var(--g400); transform: translate(-50%,-50%); box-shadow: 0 0 0 0 var(--g700); transition: width 1.2s cubic-bezier(.2,.7,.2,1), height 1.2s cubic-bezier(.2,.7,.2,1), border-width 1.2s ease; }
+  #bagelWrap .dot { position: absolute; width: 6px; height: 6px; background: var(--g300); transition: transform 1.4s cubic-bezier(.3,0,.2,1), opacity 1.4s; }
+  .enemy { display: grid; grid-template-columns: auto 1fr; gap: 28px; align-items: start; max-width: 700px; }
+  .enemy .fig { --u: .55; }
+  #enemyTxt { display: grid; gap: 16px; }
+  #enemyTxt .bub { align-self: start; }
+
+  /* ── chapter 4: here ── */
+  #keep { width: 100%; max-width: 520px; padding: 18px 20px; border: 0; border-bottom: 2px solid currentColor; background: transparent; color: inherit; font: inherit; font-size: 20px; }
+  #keep::placeholder { color: var(--g400); }
+  .receipt { background: var(--g100); color: var(--ink); max-width: 420px; padding: 28px 30px; font-size: 13px; display: grid; gap: 8px; }
+  .receipt .rh { font-family: var(--pixel); font-size: 17px; margin-bottom: 8px; }
+  .receipt .rh .ko { font-family: var(--body); font-size: 12px; font-weight: 700; margin-left: 10px; }
+  .receipt .li { display: grid; grid-template-columns: 1fr auto; gap: 16px; border-bottom: 1px dashed var(--g300); padding-bottom: 6px; }
+  .receipt .li b { font-variant-numeric: tabular-nums; }
+  .receipt .sum { font-weight: 700; font-size: 15px; margin-top: 10px; line-height: 1.5; }
+  .receipt .fine { font-size: 11px; color: var(--g700); margin-top: 6px; }
+
+  .hidden { display: none !important; }
+  @media (max-width: 560px) {
+    #hdr { grid-template-columns: 1fr auto; font-size: 14px; }
+    #hdr #chap { display: none; }
+    .qbox .choice { grid-template-columns: 1fr; }
+    .fig.big-hide { display: none; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { transition: none !important; animation-duration: 0s !important; }
+  }
+</style>
+</head>
+<body>
+
+<header id="hdr">
+  <div>ALL AT ONCE</div>
+  <div id="chap"><span class="sq"></span><span id="chapTxt">LAUNDROMAT</span></div>
+  <div id="count"><span id="uni">000001</span><small>UNIVERSES</small></div>
+</header>
+
+<main id="stage">
+
+  <!-- 0 · 세탁소 -->
+  <section class="ch on" id="c0">
+    <div class="wrap">
+      <div><div class="kicker" style="margin-bottom:14px">EVERYTHING EVERYWHERE</div><h1>한꺼번에, 모든 곳에</h1></div>
+      <div class="lead">
+        <p class="bold">당신은 세탁소에 있다.</p>
+        <p>세금 신고는 밀렸고, 세탁기 3번은 또 멈췄고, 남편은 서류 한 장을 들고 당신을 따라다닌다. 딸은 누군가를 데려와 소개하고 싶어 하는데, 당신은 그 얘기를 들을 틈이 없다.</p>
+        <p class="dim">소요 시간 약 6분 · 마우스 또는 터치</p>
+      </div>
+      <div class="scene">
+        <div class="fig" id="fig0" style="--u:.5"><i class="h"></i><i class="n"></i><i class="b"></i></div>
+        <div class="bub"><span class="t"><i></i><i></i><i></i></span>영수증부터 정리할까, 손님부터 받을까</div>
+      </div>
+      <div class="row"><button class="btn ink" data-go="1">세탁소 문을 연다</button></div>
+    </div>
+  </section>
+
+  <!-- 1 · 분기 -->
+  <section class="ch" id="c1">
+    <div class="wrap">
+      <h2 id="q1h">사소한 선택마다 우주가 하나씩 갈라진다.</h2>
+      <div class="lead"><p>당신이 고르지 않은 쪽은 사라지지 않는다.<br>다른 우주에서, 다른 당신이 그 선택을 살아간다.</p></div>
+      <div class="qbox">
+        <div class="bub" id="q1"></div>
+        <div class="choice" id="q1c"></div>
+        <p class="note" id="q1n"></p>
+      </div>
+      <div>
+        <div class="label dim" style="margin-bottom:10px">UNCHOSEN<span class="ko">고르지 않은 당신들</span></div>
+        <div id="ghosts"></div>
+      </div>
+      <div class="row hidden" id="q1next"><button class="btn ink" data-go="2">모든 나를 만나러 간다</button></div>
+    </div>
+  </section>
+
+  <!-- 2 · 버스 점프 -->
+  <section class="ch" id="c2">
+    <div class="wrap">
+      <h2>다른 우주의 당신에게 접속하려면, 통계적으로 있을 법하지 않은 행동을 해야 한다.</h2>
+      <div class="lead"><p>립밤을 먹거나, 신발을 반대로 신거나, 원수에게 사랑을 고백하거나. 있을 법하지 않을수록 멀리 간다.</p></div>
+
+      <div class="jump-card" id="jumpA">
+        <div class="label dim">JUMP 01 / 03</div>
+        <div class="task">같은 자리를 정확히 일곱 번 누른다. 여덟 번이면 처음부터.</div>
+        <button id="tap" type="button">0 / 7</button>
+      </div>
+
+      <div class="verse hidden" id="verseA">
+        <div class="vname">■ ACTOR VERSE<span class="ko">배우 우주</span></div>
+        <p>홍콩에 남은 당신은 배우가 됐다. 레드카펫, 조명, 이름을 부르는 사람들. 세탁소도, 밀린 세금도, 서류를 들고 따라다니는 남편도 없다.</p>
+        <p class="dim">그 우주의 당신은 골목에서 옛 남편을 마주치고, 처음으로 "다른 삶이었다면" 을 상상한다. 가진 것이 많을수록 없는 것이 선명해진다.</p>
+        <div class="row"><button class="btn" id="toB">다음 점프</button></div>
+      </div>
+
+      <div class="jump-card hidden" id="jumpB">
+        <div class="label dim">JUMP 02 / 03</div>
+        <div class="task">아래에 <b>사랑해</b> 를 거꾸로 입력한다.</div>
+        <input id="rev" type="text" autocomplete="off" placeholder="…" aria-label="거꾸로 입력">
+      </div>
+
+      <div class="verse hidden" id="verseB">
+        <div class="vname">■ HOTDOG VERSE<span class="ko">손가락이 핫도그인 우주</span></div>
+        <div class="hotdog" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div>
+        <p>이 우주에서 인류의 손가락은 핫도그처럼 흐물거린다. 물건을 못 집는다. 대신 발로 피아노를 치고, 발로 서로의 얼굴을 쓰다듬는다.</p>
+        <p class="dim">세무사 디어드리는 이 우주에서 당신의 연인이다. 가장 우스운 우주에서 가장 다정한 관계가 만들어진다. 우스꽝스러움과 다정함은 같은 재료다.</p>
+        <div class="row"><button class="btn" id="toC">다음 점프</button></div>
+      </div>
+
+      <div class="jump-card hidden" id="jumpC">
+        <div class="label dim">JUMP 03 / 03</div>
+        <div class="task">3초 동안 아무것도 하지 않는다. 움직이면 처음부터.</div>
+        <div class="meter"><b id="still"></b></div>
+        <p class="note" style="opacity:.7">마우스도, 키보드도, 스크롤도. 그냥 기다린다.</p>
+      </div>
+
+      <div class="verse hidden" id="verseC">
+        <div class="vname">■ ROCK VERSE<span class="ko">돌 우주</span></div>
+        <div class="rocks" aria-hidden="true"><div class="rock"></div><div class="rock s"></div></div>
+        <p class="sub">— 생명이 생기지 않은 우주다. 우리는 그냥 돌이다.<br>— 조용하네.<br>— 응. 여기선 아무것도 안 해도 돼.</p>
+        <p>절벽 위의 돌 두 개. 소리도 없고, 대사는 자막으로만 흐른다. 당신과 당신의 딸이 처음으로 같은 곳을 바라본다.</p>
+        <p class="dim">아무것도 하지 않는 것이 가장 어려운 점프였다. 세탁소의 당신은 한 번도 멈춰본 적이 없으니까.</p>
+        <div class="row"><button class="btn" data-go="3">딸이 있는 곳으로</button></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 3 · 베이글 -->
+  <section class="ch" id="c3">
+    <div class="wrap">
+      <div id="bagelIntro">
+        <h2>딸은 모든 우주를 동시에 봤다. 그리고 모든 것을 베이글 위에 올렸다.</h2>
+        <div class="lead">
+          <p>참깨, 양귀비씨, 소금, 그리고 모든 희망과 꿈, 지금까지 당신이 갈라놓은 우주 전부. 그러자 진실이 보였다고 딸은 말한다.</p>
+          <p class="bold">아무것도 중요하지 않다.</p>
+        </div>
+        <div id="bagelWrap" aria-hidden="true"><div id="bagel"></div></div>
+        <div class="scene">
+          <div class="bub"><span class="t"><i></i><i></i><i></i></span>
+            <span class="yes">YES</span>
+            <span class="fade">들어가. 어차피 아무것도 중요하지 않으니까. 이 결정을 내린 사람 중 후회한 비율은 0%임. 후회할 사람이 남지 않으니까. 예상 편안함 100%. 그래서… </span><span class="more">더보기</span>
+          </div>
+        </div>
+        <div class="row">
+          <button class="btn" id="enterBagel">베이글에 들어간다</button>
+          <button class="btn" id="stayOut">누군가 소매를 붙잡는다</button>
+        </div>
+      </div>
+
+      <div class="hidden" id="bagelIn">
+        <div class="lead">
+          <p class="dim" id="bagelInTxt">…</p>
+        </div>
+      </div>
+
+      <div class="hidden" id="waymond">
+        <h2>남편이 말한다. 낙관은 순진함이 아니라 전략이라고.</h2>
+        <div class="lead">
+          <p>서류를 들고 따라다니던 그 남편. 세탁기에 구글리 아이를 붙여놓아 당신을 짜증나게 하던 그 사람. 그가 싸움 한가운데서 말한다. 무슨 일이 일어나는지 모를 때일수록, 친절해야 한다고. 그게 자기가 살아남은 방법이라고.</p>
+          <p class="bold">당신은 그의 방식으로 싸우기로 한다.</p>
+        </div>
+        <div class="enemy">
+          <div class="fig" id="enemyFig"><i class="h"><span class="eye"></span></i><i class="n"></i><i class="b"></i></div>
+          <div id="enemyTxt">
+            <div class="label dim" id="enemyLbl"></div>
+            <div class="bub" id="enemyBub"></div>
+            <div class="row" id="enemyBtns"></div>
+            <p class="note" id="enemyNote"></p>
+          </div>
+        </div>
+        <div class="row hidden" id="toHere"><button class="btn" data-go="4">딸에게 간다</button></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 4 · 지금 여기 -->
+  <section class="ch" id="c4">
+    <div class="wrap">
+      <h2 id="hereH">딸은 그래도 떠나겠다고 한다. 다른 곳에서라면 조금 더 행복할지도 모르니까.</h2>
+      <div class="lead" id="hereLead">
+        <p>당신은 딸을 놓아준다. 그리고 다시 붙잡는다. 이 우주에서 당신은 세탁소 주인이고, 세금은 밀렸고, 딸과의 대화는 매번 어긋난다. 다른 모든 우주에 있을 수 있었지만, 당신은 여기 있고 싶다. 딸과 함께, 이 짧고 사소한 시간에.</p>
+        <p class="bold">아무것도 중요하지 않다는 말은, 그래서 무엇이든 소중히 할 수 있다는 말과 같은 말이었다.</p>
+      </div>
+      <div id="keepBox">
+        <label class="label dim" for="keep" style="display:block;margin-bottom:12px">KEEP ONE<span class="ko">이 우주에 남기고 싶은 사소한 것 하나</span></label>
+        <input id="keep" type="text" maxlength="40" placeholder="예: 빨래 개는 일요일 오후" autocomplete="off">
+        <div class="row" style="margin-top:16px"><button class="btn ink" id="finish">이 우주에 남는다</button></div>
+      </div>
+      <div class="receipt hidden" id="receipt">
+        <div class="rh">AUDIT NOTICE<span class="ko">감사 결과 통지서</span></div>
+        <div class="li"><span>생성된 우주</span><b id="r1"></b></div>
+        <div class="li"><span>고르지 않은 선택</span><b id="r2"></b></div>
+        <div class="li"><span>있을 법하지 않은 행동</span><b id="r3"></b></div>
+        <div class="li"><span>안아준 사람</span><b id="r4"></b></div>
+        <div class="li"><span>베이글 진입</span><b id="r5"></b></div>
+        <div class="li"><span>남긴 우주</span><b>1</b></div>
+        <div class="sum" id="rsum"></div>
+        <div class="fine">본 통지서는 정정 대상이 아님. 세탁소 3번 세탁기는 여전히 고장.</div>
+        <div class="row" style="margin-top:14px"><button class="btn ink" id="again">처음부터, 다른 선택으로</button></div>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<script>
+(function () {
+  const $ = (s) => document.querySelector(s);
+  const state = { uni: 1, unchosen: [], jumps: 0, hugs: 0, bagel: false, keep: '' };
+  const CHAP = ['LAUNDROMAT', 'BRANCH', 'VERSE JUMP', 'BAGEL', 'HERE, NOW'];
+
+  function setUni(n) { state.uni = n; $('#uni').textContent = String(n).padStart(6, '0'); }
+  function go(i) {
+    document.querySelectorAll('.ch').forEach((c, k) => c.classList.toggle('on', k === i));
+    $('#chapTxt').textContent = CHAP[i];
+    $('#stage').scrollTop = 0;
+    if (i === 2) startTap();
+    if (i === 3) growBagel();
+  }
+  document.addEventListener('click', (e) => {
+    const b = e.target.closest('[data-go]');
+    if (b) go(Number(b.dataset.go));
+  });
+
+  /* ── 1 · 분기 ── */
+  const Q = [
+    ['어머니가 반대한다. 그 남자와 미국으로 갈까?', '홍콩을 떠나 세탁소를 차린다', '남아서 노래와 연기를 배운다'],
+    ['영수증이 상자째 쌓여 있다.', '오늘 밤 정리한다', '내일로 미룬다'],
+    ['남편이 또 썰렁한 농담을 한다.', '한숨을 쉰다', '웃어준다'],
+    ['딸이 여자친구를 데려왔다.', '"살쪘네" 하고 말한다', '말을 삼키고 저녁을 차린다'],
+    ['손님이 세제를 안 넣고 돌렸다며 화를 낸다.', '같이 화낸다', '세제 하나를 더 준다'],
+  ];
+  let qi = 0;
+  function renderQ() {
+    if (qi >= Q.length) {
+      $('#q1').innerHTML = '<span class="t"><i></i><i></i><i></i></span>' + state.uni + '개의 우주에 ' + state.uni + '명의 당신이 있다. 어느 쪽도 정답이 아니었고, 어느 쪽도 사라지지 않았다.';
+      $('#q1c').innerHTML = '';
+      $('#q1n').textContent = '';
+      $('#q1next').classList.remove('hidden');
+      return;
+    }
+    const [q, a, b] = Q[qi];
+    $('#q1').innerHTML = '<span class="t"><i></i><i></i><i></i></span>' + q;
+    $('#q1c').innerHTML = '';
+    [a, b].forEach((txt, k) => {
+      const btn = document.createElement('button');
+      btn.className = 'btn'; btn.type = 'button'; btn.textContent = txt;
+      btn.addEventListener('click', () => pick(k === 0 ? b : a));
+      $('#q1c').appendChild(btn);
+    });
+    $('#q1n').textContent = '선택 ' + (qi + 1) + ' / ' + Q.length;
+  }
+  function pick(other) {
+    state.unchosen.push(other);
+    const before = state.uni;
+    setUni(state.uni * 2);
+    for (let i = 0; i < before; i++) {
+      const g = document.createElement('div');
+      g.className = 'fig ghost sm'; g.style.animationDelay = Math.min(i * 30, 600) + 'ms';
+      g.innerHTML = '<i class="h"></i><i class="n"></i><i class="b"></i>';
+      $('#ghosts').appendChild(g);
+    }
+    qi++;
+    renderQ();
+  }
+  renderQ();
+
+  /* ── 2 · 버스 점프 ── */
+  let taps = 0, tapT = null;
+  function startTap() { taps = 0; $('#tap').textContent = '0 / 7'; }
+  $('#tap').addEventListener('click', () => {
+    clearTimeout(tapT);
+    taps++;
+    if (taps > 7) { taps = 0; $('#tap').textContent = '여덟 번. 처음부터.'; tapT = setTimeout(() => $('#tap').textContent = '0 / 7', 900); return; }
+    $('#tap').textContent = taps + ' / 7';
+    if (taps === 7) {
+      tapT = setTimeout(() => {
+        state.jumps++; setUni(state.uni + 1);
+        $('#jumpA').classList.add('hidden'); $('#verseA').classList.remove('hidden');
+      }, 700);
+    }
+  });
+  $('#toB').addEventListener('click', () => {
+    $('#verseA').classList.add('hidden'); $('#jumpB').classList.remove('hidden'); $('#rev').focus();
+  });
+  $('#rev').addEventListener('input', (e) => {
+    if (e.target.value.trim() === '해랑사') {
+      state.jumps++; setUni(state.uni + 1);
+      setTimeout(() => { $('#jumpB').classList.add('hidden'); $('#verseB').classList.remove('hidden'); }, 400);
+    }
+  });
+  let stillT = null, stillStart = 0, stillOn = false;
+  function stillReset() {
+    if (!stillOn) return;
+    stillStart = performance.now();
+    $('#still').style.width = '0%';
+  }
+  function stillTick() {
+    if (!stillOn) return;
+    const p = Math.min(1, (performance.now() - stillStart) / 3000);
+    $('#still').style.width = (p * 100) + '%';
+    if (p >= 1) {
+      stillOn = false;
+      state.jumps++; setUni(state.uni + 1);
+      $('#jumpC').classList.add('hidden'); $('#verseC').classList.remove('hidden');
+      return;
+    }
+    stillT = requestAnimationFrame(stillTick);
+  }
+  ['pointermove', 'pointerdown', 'keydown', 'wheel', 'touchstart', 'scroll'].forEach((ev) => window.addEventListener(ev, stillReset, { passive: true, capture: true }));
+  $('#toC').addEventListener('click', () => {
+    $('#verseB').classList.add('hidden'); $('#jumpC').classList.remove('hidden');
+    stillOn = true; stillStart = performance.now() + 600; stillT = requestAnimationFrame(stillTick);
+  });
+
+  /* ── 3 · 베이글 ── */
+  function growBagel() {
+    const wrap = $('#bagelWrap');
+    wrap.querySelectorAll('.dot').forEach((d) => d.remove());
+    const W = wrap.clientWidth, H = wrap.clientHeight;
+    const n = Math.min(state.uni, 160);
+    const dots = [];
+    for (let i = 0; i < n; i++) {
+      const d = document.createElement('div');
+      d.className = 'dot';
+      d.style.left = (Math.random() * W) + 'px';
+      d.style.top = (Math.random() * H) + 'px';
+      wrap.appendChild(d); dots.push(d);
+    }
+    const b = $('#bagel');
+    b.style.width = '0'; b.style.height = '0'; b.style.borderWidth = '0';
+    requestAnimationFrame(() => {
+      setTimeout(() => {
+        b.style.width = '220px'; b.style.height = '220px'; b.style.borderWidth = '44px';
+        dots.forEach((d) => {
+          const dx = W / 2 - parseFloat(d.style.left), dy = H / 2 - parseFloat(d.style.top);
+          d.style.transform = 'translate(' + dx + 'px,' + dy + 'px) scale(.2)';
+          d.style.opacity = '0';
+        });
+      }, 300);
+    });
+  }
+  const IN = ['…', '아무 소리도 없다.', '아무것도 중요하지 않다. 정말로.', '그런데 누군가 당신의 소매를 붙잡고 있다.', '서류를 든 손이다.'];
+  $('#enterBagel').addEventListener('click', () => {
+    state.bagel = true;
+    $('#bagelIntro').classList.add('hidden'); $('#bagelIn').classList.remove('hidden');
+    let k = 0;
+    const t = setInterval(() => {
+      k++;
+      if (k < IN.length) { $('#bagelInTxt').textContent = IN[k]; return; }
+      clearInterval(t);
+      $('#bagelIn').classList.add('hidden'); $('#waymond').classList.remove('hidden'); renderEnemy();
+    }, 1100);
+  });
+  $('#stayOut').addEventListener('click', () => {
+    $('#bagelIntro').classList.add('hidden'); $('#waymond').classList.remove('hidden'); renderEnemy();
+  });
+
+  const E = [
+    { lbl: 'ENEMY 01 / 03<span class="ko">세무사</span>', bub: '연장 신청은 이번이 마지막입니다. 다음엔 압류예요.', fight: '서류를 집어던진다', hug: '허리가 아프시죠, 하고 묻는다', after: '그는 잠깐 멈춘다. 이 사람도 오늘 아침 혼자 일어났다는 것을, 당신은 처음 생각해본다.' },
+    { lbl: 'ENEMY 02 / 03<span class="ko">알파 우주 요원</span>', bub: '딸을 없애야 합니다. 그게 모든 우주를 구하는 길이에요.', fight: '먼저 친다', hug: '그의 등에 손을 얹는다', after: '요원은 당신을 뚫어져라 보다가 무기를 내린다. 그도 어느 우주에선가 누군가의 아들이었다.' },
+    { lbl: 'ENEMY 03 / 03<span class="ko">딸</span>', bub: '엄마는 어차피 이해 못 해. 그냥 보내줘.', fight: '"너 같은 애는 낳지 말 걸" 하고 말한다', hug: '"네가 어디로 가든, 나는 여기 있고 싶어" 하고 말한다', after: '딸은 울지 않는다. 대신 세탁소 앞에 잠깐 더 서 있는다.' },
+  ];
+  let ei = 0;
+  function renderEnemy() {
+    ei = 0; $('#enemyFig').classList.remove('eyed'); $('#toHere').classList.add('hidden'); showEnemy();
+  }
+  function showEnemy() {
+    const e = E[ei];
+    $('#enemyLbl').innerHTML = e.lbl;
+    $('#enemyBub').innerHTML = '<span class="t"><i></i><i></i><i></i></span>' + e.bub;
+    $('#enemyNote').textContent = '';
+    const box = $('#enemyBtns'); box.innerHTML = '';
+    [['fight', e.fight], ['hug', e.hug]].forEach(([kind, txt]) => {
+      const b = document.createElement('button');
+      b.className = 'btn'; b.type = 'button'; b.textContent = txt;
+      b.addEventListener('click', () => resolveEnemy(kind));
+      box.appendChild(b);
+    });
+  }
+  function resolveEnemy(kind) {
+    const e = E[ei];
+    if (kind === 'hug') {
+      state.hugs++;
+      $('#enemyFig').classList.add('eyed');
+      $('#enemyNote').textContent = e.after;
+    } else {
+      $('#enemyNote').textContent = '상대는 더 세게 되돌아온다. 베이글이 조금 커진다. 다시 고를 수 있다.';
+      return;
+    }
+    $('#enemyBtns').innerHTML = '';
+    const b = document.createElement('button');
+    b.className = 'btn'; b.type = 'button'; b.textContent = ei < E.length - 1 ? '다음' : '싸움이 끝났다';
+    b.addEventListener('click', () => {
+      ei++;
+      if (ei < E.length) { $('#enemyFig').classList.remove('eyed'); showEnemy(); }
+      else { $('#enemyBtns').innerHTML = ''; $('#toHere').classList.remove('hidden'); }
+    });
+    $('#enemyBtns').appendChild(b);
+  }
+
+  /* ── 4 · 지금 여기 ── */
+  $('#finish').addEventListener('click', () => {
+    state.keep = $('#keep').value.trim();
+    $('#r1').textContent = state.uni;
+    $('#r2').textContent = state.unchosen.length + '개';
+    $('#r3').textContent = state.jumps + '회';
+    $('#r4').textContent = state.hugs + '명';
+    $('#r5').textContent = state.bagel ? '했다가 돌아옴' : '거부';
+    $('#rsum').textContent = state.keep
+      ? '결론: ' + state.uni + '개 우주 중 1개를 남김. 남긴 이유 — "' + state.keep + '".'
+      : '결론: ' + state.uni + '개 우주 중 1개를 남김. 남긴 이유는 적지 않았으나, 남았다는 사실이 이유가 됨.';
+    $('#keepBox').classList.add('hidden'); $('#receipt').classList.remove('hidden');
+    setUni(1);
+  });
+  $('#again').addEventListener('click', () => location.reload());
+
+  /* hot-reload snapshot for open viewers */
+  const start = (data) => {
+    if (data && data.uni) { setUni(data.uni); }
+  };
+  window.claude?.hot?.snapshot?.(() => ({ uni: state.uni }));
+  window.claude?.hot?.ready ? window.claude.hot.ready(start) : start(window.claude?.hot?.data ?? {});
+})();
+</script>
+</body>
+</html>
