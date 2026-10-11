@@ -2,568 +2,841 @@
 <html lang="ko">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="description" content="선택하고, 점프하고, 무너지고, 돌아오는 인터랙티브 전시">
-<title>한꺼번에, 모든 곳에</title>
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bytesized&family=Noto+Sans+KR:wght@400;700&display=swap">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>마지막 비트 — 생각</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/galmuri/dist/galmuri.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bytesized&family=Gaegu&display=swap">
 <style>
-  :root {
-    --paper: #F2F2F2;
-    --ink: #1D1D1F;
-    --black: #000000;
-    --white: #FFFFFF;
-    --g100: #EBEBEB;
-    --g300: #CCCCCC;
-    --g400: #BABABA;
-    --g700: #646464;
-    --g900: #212121;
-    --pixel: 'Bytesized', 'Courier New', monospace;
-    --body: -apple-system, 'SF Pro Text', 'Apple SD Gothic Neo', 'Pretendard', 'Noto Sans KR', sans-serif;
-    --header-h: 56px;
-  }
-  html, body { height: 100%; }
-  body {
-    margin: 0;
-    background: var(--black);
-    color: var(--g400);
-    font-family: var(--body);
-    font-size: 15px;
-    line-height: 1.6;
-    word-break: keep-all;
-    overflow-wrap: anywhere;
-    overflow: hidden;
-  }
+  :root { --bg: #000; --fg: #fff; --dim: #666; --line: 2px; --ko: 'Galmuri11', 'Galmuri9', monospace; --en: 'Bytesized', 'Galmuri11', monospace; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; background: var(--bg); color: var(--fg); }
+  body { font-family: var(--ko); display: grid; place-items: center; overflow: hidden; user-select: none; -webkit-user-select: none; }
+  #stage { position: relative; width: min(100vw, 160vh); aspect-ratio: 16 / 10; background: var(--bg); overflow: hidden; font-size: clamp(13px, 1.75vw, 28px); }
+  #cv { position: absolute; inset: 0; width: 100%; height: 100%; image-rendering: pixelated; }
+  canvas.bmp { image-rendering: pixelated; display: block; }
+  #label { position: absolute; top: 3.2%; left: 4%; font-family: var(--en); font-size: 1.1em; letter-spacing: .06em; color: #fff; mix-blend-mode: difference; z-index: 3; }
 
-  *, *::before, *::after { box-sizing: border-box; }
-  button { font: inherit; color: inherit; cursor: pointer; }
-  button:focus-visible, input:focus-visible { outline: 2px solid currentColor; outline-offset: 3px; }
+  /* 보조 창 (공책, 작품) */
+  #view { position: absolute; left: 4%; top: 10%; width: 46%; height: 54%; border: var(--line) solid var(--fg); background: var(--bg); display: none; flex-direction: column; z-index: 2; }
+  #view.show { display: flex; animation: up .4s both; }
+  #view .hd { padding: .35em .8em; border-bottom: var(--line) solid var(--fg); font-size: .74em; display: flex; justify-content: space-between; }
+  #view .hd span:last-child { font-family: var(--en); color: #aaa; }
+  #view .bd { flex: 1; overflow-y: auto; padding: .8em; display: grid; place-items: center; scrollbar-width: thin; scrollbar-color: #fff #000; }
+  #view .bd canvas { width: 100%; }
+  .pages { display: flex; flex-direction: column; gap: .8em; width: 100%; align-self: start; }
+  .pages canvas { border: 1px solid #555; }
 
-  /* ── header: BRAND · ■ LABEL ── */
-  #hdr {
-    color: var(--g300);
-    position: fixed; inset: 0 0 auto 0; height: calc(var(--header-h) + env(safe-area-inset-top, 0px));
-    padding: calc(20px + env(safe-area-inset-top, 0px)) 24px 0;
-    display: grid; grid-template-columns: 1fr 1fr auto; align-items: start; gap: 16px;
-    font-family: var(--pixel); font-size: 17px; letter-spacing: .3px; line-height: 1;
-    z-index: 10; pointer-events: none;
-  }
-  #hdr .sq { display: inline-block; width: 9px; height: 9px; background: currentColor; margin-right: 8px; vertical-align: 1px; }
-  #hdr #count { font-variant-numeric: tabular-nums; text-align: right; }
-  #hdr #count small { display: block; font-family: var(--pixel); font-size: 12px; opacity: .55; margin-top: 4px; }
+  /* 카드 + 생각 */
+  #veil { position: absolute; left: 0; right: 0; top: 0; bottom: 0; z-index: 2; display: none; background: repeating-conic-gradient(#000 0 25%, transparent 0 50%) 0 0 / 4px 4px; }
+  #veil.show { display: block; animation: fade .3s both; }
+  #side { position: absolute; left: 0; right: 0; top: 4%; height: 64%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: .9em; z-index: 3; pointer-events: none; }
+  #side.right { left: 54%; right: 4%; }
+  .flip { position: relative; height: 66%; aspect-ratio: 7 / 12; perspective: 1000px; flex: none; animation: deal .5s both; }
+  .flip .in { position: absolute; inset: 0; transform-style: preserve-3d; transition: transform .8s cubic-bezier(.3,1.4,.5,1); }
+  .flip.on .in { transform: rotateY(180deg); }
+  .face { position: absolute; inset: 0; backface-visibility: hidden; border-radius: 6% / 3.5%; overflow: hidden; container-type: size; }
+  .face canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .front { transform: rotateY(180deg); }
+  .front .num, .front .nm { position: absolute; left: 0; right: 0; text-align: center; font-family: var(--en); color: #000; letter-spacing: .12em; }
+  .front .num { top: 4.5%; font-size: 7.5cqh; line-height: 1; }
+  .front .nm { bottom: 5.5%; font-size: 6.5cqh; line-height: 1; }
+  .cap { font-size: .74em; background: #fff; color: #000; padding: .35em .9em; max-width: 100%; text-align: center; word-break: keep-all; line-height: 1.6; animation: up .4s both; }
+  .spread { height: 72%; display: flex; align-items: center; justify-content: center; }
+  .spread .flip { height: 100%; margin: 0 -1.1em; rotate: var(--r); cursor: pointer; pointer-events: auto; transition: translate .25s, opacity .4s, rotate .4s; }
+  .spread .flip:hover { translate: 0 -.8em; }
+  .spread .flip.gone { opacity: 0; translate: 0 1.5em; pointer-events: none; }
+  .spread .flip.chosen { rotate: 0deg; translate: 0 -.4em; z-index: 2; cursor: default; }
+  .echo { display: flex; flex-direction: column; align-items: center; gap: .15em; font-size: .52em; color: #888; max-width: 90%; text-align: center; }
+  .echo span { animation: drift 2.4s ease-out both; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+  .answer { display: flex; align-items: stretch; gap: .5em; border: var(--line) solid var(--fg); background: var(--bg); padding: .35em .35em .35em 1em; max-width: 92%; }
+  .answer .f { font-size: .8em; align-self: center; min-width: 12em; }
+  .answer .f::after { content: '▏'; animation: blink 1s steps(1) infinite; }
+  @keyframes drift { from { opacity: 0; transform: translateY(.8em); } 60% { opacity: 1; } to { opacity: .55; } }
+  .gift { height: 72%; }
+  .gift.glow .back canvas { animation: pulse 1.4s ease-in-out infinite; }
+  .opt.take { pointer-events: auto; font-size: .9em; background: var(--fg); color: var(--bg); padding: .5em 2.2em; box-shadow: .25em .25em 0 #555; animation: up .4s .2s both; }
+  .opt.take:hover { background: var(--bg); color: var(--fg); }
+  .taken { transition: translate .5s ease-in, scale .5s ease-in, opacity .5s; translate: 0 3em; scale: .6; opacity: 0; }
+  .thought { border: var(--line) dashed #fff; border-radius: 1.2em; padding: .5em .9em; background: #000; animation: up .5s both; max-width: 100%; }
+  .thought canvas { height: 1.5em; width: auto; max-width: 100%; }
+  .thought.two canvas { height: 3em; }
 
-  /* ── stage ── */
-  #stage { position: absolute; inset: 0; }
-  .ch { position: absolute; inset: 0; top: calc(var(--header-h) + env(safe-area-inset-top, 0px)); display: none; padding: 24px 24px calc(24px + env(safe-area-inset-bottom, 0px)); overflow-y: auto; }
-  .ch.on { display: block; }
-  .wrap { max-width: 880px; margin: 0 auto; min-height: 100%; display: flex; flex-direction: column; gap: 28px; padding-block: 24px 40px; }
-  .lead { max-width: 34em; }
-  .lead p { margin: 0 0 .9em; }
-  .lead p:last-child { margin-bottom: 0; }
-  .lead .bold { font-weight: 700; color: var(--g100); }
-  .dim { opacity: .45; }
-  h1 { color: var(--g100); font-family: var(--body); font-weight: 700; font-size: clamp(32px, 8.6vw, 84px); line-height: 1.08; margin: 0; letter-spacing: -.03em; white-space: nowrap; }
-  .kicker { font-family: var(--pixel); font-size: 17px; letter-spacing: .3px; opacity: .55; }
-  h2 { color: var(--g100); font-size: clamp(22px, 3.2vw, 32px); font-weight: 700; line-height: 1.3; margin: 0; letter-spacing: -.01em; text-wrap: balance; }
-  .label { font-family: var(--pixel); font-size: 15px; letter-spacing: .3px; }
-  .label .ko { font-family: var(--body); font-size: 12px; font-weight: 700; margin-left: 10px; letter-spacing: 0; }
+  /* 선택지 */
+  #choices { position: absolute; left: 4%; right: 4%; bottom: 32%; display: none; flex-wrap: wrap; justify-content: center; gap: .6em; z-index: 6; }
+  #choices.show { display: flex; animation: up .3s both; }
+  .opt { font: inherit; font-size: .8em; background: var(--bg); color: var(--fg); border: var(--line) solid var(--fg); padding: .55em 1.2em; cursor: pointer; }
+  .opt:hover, .opt:focus-visible { background: var(--fg); color: var(--bg); outline: none; }
 
-  /* ── buttons: white box, ink text (light) / ink box on dark ── */
-  .btn {
-    background: var(--white); color: var(--ink); border: 0; padding: 16px 28px; font-weight: 700; font-size: 14px;
-    text-align: left; line-height: 1.4; transition: transform .12s ease;
-  }
-  .btn:hover { transform: translateY(-2px); }
-  .btn:active { transform: translateY(0); }
-  .btn.ink { background: var(--black); color: var(--white); }
-  .btn { background: var(--g900); color: var(--white); }
-  .btn.ink { background: var(--g100); color: var(--ink); }
-  .btn[disabled] { opacity: .35; cursor: default; transform: none; }
-  .row { display: flex; flex-wrap: wrap; gap: 12px; }
+  /* 대사창 + 점성술사 버튼 */
+  #box { position: absolute; left: 4%; right: 4%; bottom: 4%; height: 24%; border: var(--line) solid var(--fg); background: var(--bg); padding: 1em 1.4em; line-height: 1.75; display: none; cursor: pointer; z-index: 5; }
+  #box.show { display: block; }
+  #name { position: absolute; top: -1.05em; left: 1em; background: var(--fg); color: var(--bg); padding: .1em .7em; font-size: .8em; }
+  #name:empty { display: none; }
+  #text { font-size: .9em; }
+  #box:has(#ask.show) #text { padding-right: 11em; }
+  #more { position: absolute; right: 1em; bottom: .5em; font-family: var(--en); animation: blink 1s steps(1) infinite; visibility: hidden; }
+  #more.show { visibility: visible; }
+  #ask { position: absolute; right: .9em; top: .8em; z-index: 7; display: none; align-items: center; gap: .55em; font: inherit; font-size: .72em; background: var(--fg); color: var(--bg); border: var(--line) solid var(--fg); padding: .45em 1em .45em .8em; cursor: pointer; transition: font-size .6s; box-shadow: .25em .25em 0 #555; }
+  #ask.show { display: flex; }
+  #ask:hover:not(:disabled), #ask:focus-visible { background: var(--bg); color: var(--fg); outline: none; }
+  #ask:active:not(:disabled) { translate: .15em .15em; box-shadow: .1em .1em 0 #555; }
+  #ask:disabled { cursor: default; }
+  #ask i { width: .8em; height: 1.25em; border: 2px solid currentColor; border-radius: .12em; background: repeating-conic-gradient(currentColor 0 25%, transparent 0 50%) 0 0 / 4px 4px; flex: none; }
+  #ask.hot { animation: pulse 1.1s ease-in-out infinite; }
+  #ask.hot::after { content: ''; position: absolute; inset: -.35em; border: 1px dashed var(--fg); animation: blink 1s steps(1) infinite; pointer-events: none; }
+  #nudge { position: absolute; right: 4%; bottom: calc(28% + .6em); z-index: 7; font-size: .62em; background: #fff; color: #000; padding: .3em .8em; border-radius: .8em .8em .1em .8em; display: none; animation: up .3s both; }
+  #nudge.show { display: block; }
 
-  /* ── pixel speech bubble ── */
-  .bub { position: relative; background: var(--g100); color: var(--ink); padding: 20px 30px; max-width: 320px; font-size: 14px; line-height: 1.45; }
-  .bub .t { position: absolute; left: -34px; bottom: -30px; width: 52px; height: 60px; pointer-events: none; }
-  .bub .t i { position: absolute; width: 17px; height: 15px; background: var(--g100); }
-  .bub .t i:nth-child(1) { left: 22px; top: 0; }
-  .bub .t i:nth-child(2) { left: 0; top: 13px; }
-  .bub .t i:nth-child(3) { left: 5px; top: 37px; }
-  .bub { margin-bottom: 30px; }
-  .bub .yes { font-weight: 700; display: block; margin-bottom: 4px; }
-  .bub .fade { color: rgba(29,29,31,.35); }
-  .bub .more { color: rgba(29,29,31,.16); font-weight: 700; }
+  #next { position: absolute; right: 4%; bottom: 5%; font-family: var(--en); display: none; animation: blink 1s steps(1) infinite; z-index: 6; }
+  #next.show { display: block; }
 
-  /* ── block figure ── */
-  .fig { display: grid; justify-items: center; width: calc(182px * var(--u, 1)); gap: 0; --c: var(--black); }
-  .fig i { display: block; background: var(--c); }
-  .fig .h { width: calc(98px * var(--u, 1)); height: calc(98px * var(--u, 1)); position: relative; }
-  .fig .n { width: calc(43px * var(--u, 1)); height: calc(43px * var(--u, 1)); }
-  .fig .b { width: calc(182px * var(--u, 1)); height: calc(182px * var(--u, 1)); }
-  .fig { --c: var(--g400); }
-  .fig.ghost { --c: var(--g700); }
-  .fig.sm { transform: scale(.28); transform-origin: top left; width: 51px; height: 91px; }
-  .fig.sm i { position: relative; }
-  .eye { position: absolute; width: calc(30px * var(--u, 1)); height: calc(30px * var(--u, 1)); border-radius: 50%; background: var(--white); left: calc(44px * var(--u, 1)); top: calc(18px * var(--u, 1)); display: none; box-shadow: 0 0 0 2px var(--black); }
-  .eye::after { content: ''; position: absolute; width: 46%; height: 46%; border-radius: 50%; background: var(--black); left: 30%; top: 33%; }
-  .fig.eyed .eye { display: block; }
+  /* 전체 화면 */
+  #card { position: absolute; inset: 0; background: var(--bg); display: none; place-items: center; text-align: center; cursor: pointer; padding: 6%; z-index: 8; }
+  #card.show { display: grid; animation: fade .6s both; }
+  .cover h1 { font-weight: 400; font-size: 3em; letter-spacing: .08em; }
+  .cover .en { font-family: var(--en); font-size: 1.3em; letter-spacing: .3em; margin-top: .3em; }
+  .cover .meta { margin-top: 2.4em; font-size: .7em; color: var(--dim); line-height: 1.9; }
+  .tap { position: absolute; bottom: 6%; left: 0; right: 0; font-size: .7em; color: var(--dim); animation: blink 1.4s steps(1) infinite; }
+  .chap { font-size: 1.3em; }
+  .ending { display: flex; flex-direction: column; align-items: flex-start; gap: .9em; }
+  .ending .it { min-height: 1.6em; display: flex; align-items: center; animation: fade 1s both; }
+  .ending .it canvas { height: 1.6em; }
+  .ending .it .pr { font-size: .8em; background: #fff; color: #000; padding: .2em .7em; }
+  .ending .it.glitch { animation: glitch .12s steps(2) 6; }
+  .ending .last { margin-top: 2.2em; font-size: .85em; color: #bbb; animation: fade 2s both; align-self: center; }
 
-  /* ── chapter 1: branches ── */
-  #ghosts { display: flex; flex-wrap: wrap; gap: 6px; align-content: flex-start; min-height: 96px; }
-  #ghosts .fig.sm { opacity: 0; animation: pop .35s ease forwards; }
-  @keyframes pop { to { opacity: 1; } }
-  .qbox { display: grid; grid-template-columns: 1fr; gap: 20px; }
-  .qbox .choice { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; max-width: 640px; }
-  .qbox .btn { min-height: 76px; }
-  .qbox .btn, #enemyBtns .btn { background: var(--g100); color: var(--ink); }
-  .note { font-size: 13px; opacity: .55; max-width: 34em; }
-  .scene { display: flex; gap: 48px; align-items: flex-start; flex-wrap: wrap; }
-  .scene .bub { margin-top: 12px; }
-  #bagelIntro, #bagelIn, #waymond { display: grid; gap: 28px; }
-
-  /* ── chapter 2: verse jump ── */
-  .jump-card { background: var(--g900); padding: 28px; display: grid; gap: 18px; max-width: 640px; }
-  .jump-card .task { font-weight: 700; font-size: 17px; color: var(--g100); }
-  #tap { width: 100%; min-height: 120px; background: var(--g100); color: var(--ink); border: 0; font-family: var(--pixel); font-size: 34px; }
-  #rev { width: 100%; padding: 16px; border: 0; background: var(--g100); color: var(--ink); font: inherit; font-size: 18px; letter-spacing: .1em; }
-  .meter { height: 6px; background: var(--g700); position: relative; overflow: hidden; }
-  .meter b { position: absolute; inset: 0 auto 0 0; width: 0; background: var(--g300); transition: width .1s linear; }
-  .verse { display: grid; gap: 22px; max-width: 700px; }
-  .verse .vname { font-family: var(--pixel); font-size: 22px; color: var(--g100); }
-  .verse .vname .ko { font-family: var(--body); font-size: 15px; font-weight: 700; margin-left: 12px; }
-  .verse p { margin: 0; }
-  .rocks { display: flex; gap: 60px; align-items: flex-end; padding: 20px 0 0; }
-  .rock { width: 120px; height: 84px; background: var(--g400); }
-  .rock.s { width: 70px; height: 52px; background: var(--g700); }
-  .sub { font-size: 13px; opacity: .8; }
-  .hotdog { display: flex; gap: 8px; }
-  .hotdog i { width: 18px; height: 70px; background: var(--g300); border-radius: 9px; }
-  .hotdog i:nth-child(odd) { background: var(--g700); }
-
-  /* ── chapter 3: bagel ── */
-  #bagelWrap { position: relative; height: 260px; max-width: 720px; overflow: hidden; }
-  #bagel { position: absolute; left: 50%; top: 50%; width: 0; height: 0; border-radius: 50%; border: 0 solid var(--g400); transform: translate(-50%,-50%); box-shadow: 0 0 0 0 var(--g700); transition: width 1.2s cubic-bezier(.2,.7,.2,1), height 1.2s cubic-bezier(.2,.7,.2,1), border-width 1.2s ease; }
-  #bagelWrap .dot { position: absolute; width: 6px; height: 6px; background: var(--g300); transition: transform 1.4s cubic-bezier(.3,0,.2,1), opacity 1.4s; }
-  .enemy { display: grid; grid-template-columns: auto 1fr; gap: 28px; align-items: start; max-width: 700px; }
-  .enemy .fig { --u: .55; }
-  #enemyTxt { display: grid; gap: 16px; }
-  #enemyTxt .bub { align-self: start; }
-
-  /* ── chapter 4: here ── */
-  #keep { width: 100%; max-width: 520px; padding: 18px 20px; border: 0; border-bottom: 2px solid currentColor; background: transparent; color: inherit; font: inherit; font-size: 20px; }
-  #keep::placeholder { color: var(--g400); }
-  .receipt { background: var(--g100); color: var(--ink); max-width: 420px; padding: 28px 30px; font-size: 13px; display: grid; gap: 8px; }
-  .receipt .rh { font-family: var(--pixel); font-size: 17px; margin-bottom: 8px; }
-  .receipt .rh .ko { font-family: var(--body); font-size: 12px; font-weight: 700; margin-left: 10px; }
-  .receipt .li { display: grid; grid-template-columns: 1fr auto; gap: 16px; border-bottom: 1px dashed var(--g300); padding-bottom: 6px; }
-  .receipt .li b { font-variant-numeric: tabular-nums; }
-  .receipt .sum { font-weight: 700; font-size: 15px; margin-top: 10px; line-height: 1.5; }
-  .receipt .fine { font-size: 11px; color: var(--g700); margin-top: 6px; }
-
-  .hidden { display: none !important; }
-  @media (max-width: 560px) {
-    #hdr { grid-template-columns: 1fr auto; font-size: 14px; }
-    #hdr #chap { display: none; }
-    .qbox .choice { grid-template-columns: 1fr; }
-    .fig.big-hide { display: none; }
-  }
-  @media (prefers-reduced-motion: reduce) {
-    *, *::before, *::after { transition: none !important; animation-duration: 0s !important; }
-  }
+  .crt { position: absolute; inset: 0; z-index: 9; background: #000; display: grid; place-items: center; }
+  .crt i { display: block; background: #fff; animation: crt 1.1s cubic-bezier(.6,0,.4,1) forwards; }
+  @keyframes crt { 0% { width: 100%; height: 100%; opacity: .9; } 45% { width: 100%; height: 3px; opacity: 1; } 80% { width: 6px; height: 3px; } 100% { width: 0; height: 0; } }
+  .fin { display: flex; flex-direction: column; align-items: center; animation: fade 1.2s both; }
+  .fin-k { font-size: 1.1em; letter-spacing: .5em; margin-bottom: .2em; }
+  .fin-end { font-family: var(--en); font-size: 6em; line-height: 1; letter-spacing: .12em; }
+  .fin-rule { width: 9em; height: 0; border-top: 2px solid #fff; margin: 1.4em 0 1.2em; }
+  .fin-t { font-size: 1.15em; letter-spacing: .1em; }
+  .fin-en { font-family: var(--en); letter-spacing: .35em; margin-top: .3em; font-size: .85em; }
+  .fin-meta { margin-top: 1.6em; font-size: .65em; color: #888; }
+  .fin-out { position: absolute; bottom: 13%; left: 0; right: 0; font-size: .75em; color: #ddd; animation: fade 1s both; }
+  @keyframes blink { 50% { opacity: 0; } }
+  @keyframes fade { from { opacity: 0; } }
+  @keyframes up { from { opacity: 0; transform: translateY(.6em); } }
+  @keyframes deal { from { opacity: 0; transform: translateY(-1.5em) rotate(-6deg); } }
+  @keyframes shuffle { 0% { transform: translateX(-.25em) rotate(-3deg); } 100% { transform: translateX(.25em) rotate(3deg); } }
+  @keyframes glitch { 0% { opacity: 0; } 100% { opacity: 1; transform: translateX(.2em); } }
+  @keyframes pulse { 50% { transform: scale(1.06); } }
+  @media (prefers-reduced-motion: reduce) { * { animation-duration: .01s !important; transition-duration: .01s !important; } }
 </style>
 </head>
 <body>
-
-<header id="hdr">
-  <div>ALL AT ONCE</div>
-  <div id="chap"><span class="sq"></span><span id="chapTxt">LAUNDROMAT</span></div>
-  <div id="count"><span id="uni">000001</span><small>UNIVERSES</small></div>
-</header>
-
-<main id="stage">
-
-  <!-- 0 · 세탁소 -->
-  <section class="ch on" id="c0">
-    <div class="wrap">
-      <div><div class="kicker" style="margin-bottom:14px">EVERYTHING EVERYWHERE</div><h1>한꺼번에, 모든 곳에</h1></div>
-      <div class="lead">
-        <p class="bold">당신은 세탁소에 있다.</p>
-        <p>세금 신고는 밀렸고, 세탁기 3번은 또 멈췄고, 남편은 서류 한 장을 들고 당신을 따라다닌다. 딸은 누군가를 데려와 소개하고 싶어 하는데, 당신은 그 얘기를 들을 틈이 없다.</p>
-        <p class="dim">소요 시간 약 6분 · 마우스 또는 터치</p>
-      </div>
-      <div class="scene">
-        <div class="fig" id="fig0" style="--u:.5"><i class="h"></i><i class="n"></i><i class="b"></i></div>
-        <div class="bub"><span class="t"><i></i><i></i><i></i></span>영수증부터 정리할까, 손님부터 받을까</div>
-      </div>
-      <div class="row"><button class="btn ink" data-go="1">세탁소 문을 연다</button></div>
-    </div>
-  </section>
-
-  <!-- 1 · 분기 -->
-  <section class="ch" id="c1">
-    <div class="wrap">
-      <h2 id="q1h">사소한 선택마다 우주가 하나씩 갈라진다.</h2>
-      <div class="lead"><p>당신이 고르지 않은 쪽은 사라지지 않는다.<br>다른 우주에서, 다른 당신이 그 선택을 살아간다.</p></div>
-      <div class="qbox">
-        <div class="bub" id="q1"></div>
-        <div class="choice" id="q1c"></div>
-        <p class="note" id="q1n"></p>
-      </div>
-      <div>
-        <div class="label dim" style="margin-bottom:10px">UNCHOSEN<span class="ko">고르지 않은 당신들</span></div>
-        <div id="ghosts"></div>
-      </div>
-      <div class="row hidden" id="q1next"><button class="btn ink" data-go="2">모든 나를 만나러 간다</button></div>
-    </div>
-  </section>
-
-  <!-- 2 · 버스 점프 -->
-  <section class="ch" id="c2">
-    <div class="wrap">
-      <h2>다른 우주의 당신에게 접속하려면, 통계적으로 있을 법하지 않은 행동을 해야 한다.</h2>
-      <div class="lead"><p>립밤을 먹거나, 신발을 반대로 신거나, 원수에게 사랑을 고백하거나. 있을 법하지 않을수록 멀리 간다.</p></div>
-
-      <div class="jump-card" id="jumpA">
-        <div class="label dim">JUMP 01 / 03</div>
-        <div class="task">같은 자리를 정확히 일곱 번 누른다. 여덟 번이면 처음부터.</div>
-        <button id="tap" type="button">0 / 7</button>
-      </div>
-
-      <div class="verse hidden" id="verseA">
-        <div class="vname">■ ACTOR VERSE<span class="ko">배우 우주</span></div>
-        <p>홍콩에 남은 당신은 배우가 됐다. 레드카펫, 조명, 이름을 부르는 사람들. 세탁소도, 밀린 세금도, 서류를 들고 따라다니는 남편도 없다.</p>
-        <p class="dim">그 우주의 당신은 골목에서 옛 남편을 마주치고, 처음으로 "다른 삶이었다면" 을 상상한다. 가진 것이 많을수록 없는 것이 선명해진다.</p>
-        <div class="row"><button class="btn" id="toB">다음 점프</button></div>
-      </div>
-
-      <div class="jump-card hidden" id="jumpB">
-        <div class="label dim">JUMP 02 / 03</div>
-        <div class="task">아래에 <b>사랑해</b> 를 거꾸로 입력한다.</div>
-        <input id="rev" type="text" autocomplete="off" placeholder="…" aria-label="거꾸로 입력">
-      </div>
-
-      <div class="verse hidden" id="verseB">
-        <div class="vname">■ HOTDOG VERSE<span class="ko">손가락이 핫도그인 우주</span></div>
-        <div class="hotdog" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div>
-        <p>이 우주에서 인류의 손가락은 핫도그처럼 흐물거린다. 물건을 못 집는다. 대신 발로 피아노를 치고, 발로 서로의 얼굴을 쓰다듬는다.</p>
-        <p class="dim">세무사 디어드리는 이 우주에서 당신의 연인이다. 가장 우스운 우주에서 가장 다정한 관계가 만들어진다. 우스꽝스러움과 다정함은 같은 재료다.</p>
-        <div class="row"><button class="btn" id="toC">다음 점프</button></div>
-      </div>
-
-      <div class="jump-card hidden" id="jumpC">
-        <div class="label dim">JUMP 03 / 03</div>
-        <div class="task">3초 동안 아무것도 하지 않는다. 움직이면 처음부터.</div>
-        <div class="meter"><b id="still"></b></div>
-        <p class="note" style="opacity:.7">마우스도, 키보드도, 스크롤도. 그냥 기다린다.</p>
-      </div>
-
-      <div class="verse hidden" id="verseC">
-        <div class="vname">■ ROCK VERSE<span class="ko">돌 우주</span></div>
-        <div class="rocks" aria-hidden="true"><div class="rock"></div><div class="rock s"></div></div>
-        <p class="sub">— 생명이 생기지 않은 우주다. 우리는 그냥 돌이다.<br>— 조용하네.<br>— 응. 여기선 아무것도 안 해도 돼.</p>
-        <p>절벽 위의 돌 두 개. 소리도 없고, 대사는 자막으로만 흐른다. 당신과 당신의 딸이 처음으로 같은 곳을 바라본다.</p>
-        <p class="dim">아무것도 하지 않는 것이 가장 어려운 점프였다. 세탁소의 당신은 한 번도 멈춰본 적이 없으니까.</p>
-        <div class="row"><button class="btn" data-go="3">딸이 있는 곳으로</button></div>
-      </div>
-    </div>
-  </section>
-
-  <!-- 3 · 베이글 -->
-  <section class="ch" id="c3">
-    <div class="wrap">
-      <div id="bagelIntro">
-        <h2>딸은 모든 우주를 동시에 봤다. 그리고 모든 것을 베이글 위에 올렸다.</h2>
-        <div class="lead">
-          <p>참깨, 양귀비씨, 소금, 그리고 모든 희망과 꿈, 지금까지 당신이 갈라놓은 우주 전부. 그러자 진실이 보였다고 딸은 말한다.</p>
-          <p class="bold">아무것도 중요하지 않다.</p>
-        </div>
-        <div id="bagelWrap" aria-hidden="true"><div id="bagel"></div></div>
-        <div class="scene">
-          <div class="bub"><span class="t"><i></i><i></i><i></i></span>
-            <span class="yes">YES</span>
-            <span class="fade">들어가. 어차피 아무것도 중요하지 않으니까. 이 결정을 내린 사람 중 후회한 비율은 0%임. 후회할 사람이 남지 않으니까. 예상 편안함 100%. 그래서… </span><span class="more">더보기</span>
-          </div>
-        </div>
-        <div class="row">
-          <button class="btn" id="enterBagel">베이글에 들어간다</button>
-          <button class="btn" id="stayOut">누군가 소매를 붙잡는다</button>
-        </div>
-      </div>
-
-      <div class="hidden" id="bagelIn">
-        <div class="lead">
-          <p class="dim" id="bagelInTxt">…</p>
-        </div>
-      </div>
-
-      <div class="hidden" id="waymond">
-        <h2>남편이 말한다. 낙관은 순진함이 아니라 전략이라고.</h2>
-        <div class="lead">
-          <p>서류를 들고 따라다니던 그 남편. 세탁기에 구글리 아이를 붙여놓아 당신을 짜증나게 하던 그 사람. 그가 싸움 한가운데서 말한다. 무슨 일이 일어나는지 모를 때일수록, 친절해야 한다고. 그게 자기가 살아남은 방법이라고.</p>
-          <p class="bold">당신은 그의 방식으로 싸우기로 한다.</p>
-        </div>
-        <div class="enemy">
-          <div class="fig" id="enemyFig"><i class="h"><span class="eye"></span></i><i class="n"></i><i class="b"></i></div>
-          <div id="enemyTxt">
-            <div class="label dim" id="enemyLbl"></div>
-            <div class="bub" id="enemyBub"></div>
-            <div class="row" id="enemyBtns"></div>
-            <p class="note" id="enemyNote"></p>
-          </div>
-        </div>
-        <div class="row hidden" id="toHere"><button class="btn" data-go="4">딸에게 간다</button></div>
-      </div>
-    </div>
-  </section>
-
-  <!-- 4 · 지금 여기 -->
-  <section class="ch" id="c4">
-    <div class="wrap">
-      <h2 id="hereH">딸은 그래도 떠나겠다고 한다. 다른 곳에서라면 조금 더 행복할지도 모르니까.</h2>
-      <div class="lead" id="hereLead">
-        <p>당신은 딸을 놓아준다. 그리고 다시 붙잡는다. 이 우주에서 당신은 세탁소 주인이고, 세금은 밀렸고, 딸과의 대화는 매번 어긋난다. 다른 모든 우주에 있을 수 있었지만, 당신은 여기 있고 싶다. 딸과 함께, 이 짧고 사소한 시간에.</p>
-        <p class="bold">아무것도 중요하지 않다는 말은, 그래서 무엇이든 소중히 할 수 있다는 말과 같은 말이었다.</p>
-      </div>
-      <div id="keepBox">
-        <label class="label dim" for="keep" style="display:block;margin-bottom:12px">KEEP ONE<span class="ko">이 우주에 남기고 싶은 사소한 것 하나</span></label>
-        <input id="keep" type="text" maxlength="40" placeholder="예: 빨래 개는 일요일 오후" autocomplete="off">
-        <div class="row" style="margin-top:16px"><button class="btn ink" id="finish">이 우주에 남는다</button></div>
-      </div>
-      <div class="receipt hidden" id="receipt">
-        <div class="rh">AUDIT NOTICE<span class="ko">감사 결과 통지서</span></div>
-        <div class="li"><span>생성된 우주</span><b id="r1"></b></div>
-        <div class="li"><span>고르지 않은 선택</span><b id="r2"></b></div>
-        <div class="li"><span>있을 법하지 않은 행동</span><b id="r3"></b></div>
-        <div class="li"><span>안아준 사람</span><b id="r4"></b></div>
-        <div class="li"><span>베이글 진입</span><b id="r5"></b></div>
-        <div class="li"><span>남긴 우주</span><b>1</b></div>
-        <div class="sum" id="rsum"></div>
-        <div class="fine">본 통지서는 정정 대상이 아님. 세탁소 3번 세탁기는 여전히 고장.</div>
-        <div class="row" style="margin-top:14px"><button class="btn ink" id="again">처음부터, 다른 선택으로</button></div>
-      </div>
-    </div>
-  </section>
-
-</main>
+<div id="stage">
+  <canvas id="cv"></canvas>
+  <div id="label"></div>
+  <div id="view"><div class="hd"><span id="vt"></span><span id="vs"></span></div><div class="bd" id="vb"></div></div>
+  <div id="veil"></div>
+  <div id="side"></div>
+  <div id="choices"></div>
+  <div id="nudge"></div>
+  <div id="box"><div id="name"></div><div id="text"></div><div id="more">▼</div><button id="ask" type="button"><i></i>카드 뽑기</button></div>
+  <div id="next">▼</div>
+  <div id="card"></div>
+</div>
 
 <script>
-(function () {
-  const $ = (s) => document.querySelector(s);
-  const state = { uni: 1, unchosen: [], jumps: 0, hugs: 0, bagel: false, keep: '' };
-  const CHAP = ['LAUNDROMAT', 'BRANCH', 'VERSE JUMP', 'BAGEL', 'HERE, NOW'];
+/* ───────────── 기본 ───────────── */
+const $ = s => document.querySelector(s);
+const W = 320, H = 200;
+const cv = $('#cv'), ctx = cv.getContext('2d'); cv.width = W; cv.height = H;
+const BAYER = [[0,8,2,10],[12,4,14,6],[3,11,1,9],[15,7,13,5]];
+const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+const T = '점성술사';
 
-  function setUni(n) { state.uni = n; $('#uni').textContent = String(n).padStart(6, '0'); }
-  function go(i) {
-    document.querySelectorAll('.ch').forEach((c, k) => c.classList.toggle('on', k === i));
-    $('#chapTxt').textContent = CHAP[i];
-    $('#stage').scrollTop = 0;
-    if (i === 2) startTap();
-    if (i === 3) growBagel();
-  }
-  document.addEventListener('click', (e) => {
-    const b = e.target.closest('[data-go]');
-    if (b) go(Number(b.dataset.go));
-  });
-
-  /* ── 1 · 분기 ── */
-  const Q = [
-    ['어머니가 반대한다. 그 남자와 미국으로 갈까?', '홍콩을 떠나 세탁소를 차린다', '남아서 노래와 연기를 배운다'],
-    ['영수증이 상자째 쌓여 있다.', '오늘 밤 정리한다', '내일로 미룬다'],
-    ['남편이 또 썰렁한 농담을 한다.', '한숨을 쉰다', '웃어준다'],
-    ['딸이 여자친구를 데려왔다.', '"살쪘네" 하고 말한다', '말을 삼키고 저녁을 차린다'],
-    ['손님이 세제를 안 넣고 돌렸다며 화를 낸다.', '같이 화낸다', '세제 하나를 더 준다'],
-  ];
-  let qi = 0;
-  function renderQ() {
-    if (qi >= Q.length) {
-      $('#q1').innerHTML = '<span class="t"><i></i><i></i><i></i></span>' + state.uni + '개의 우주에 ' + state.uni + '명의 당신이 있다. 어느 쪽도 정답이 아니었고, 어느 쪽도 사라지지 않았다.';
-      $('#q1c').innerHTML = '';
-      $('#q1n').textContent = '';
-      $('#q1next').classList.remove('hidden');
-      return;
-    }
-    const [q, a, b] = Q[qi];
-    $('#q1').innerHTML = '<span class="t"><i></i><i></i><i></i></span>' + q;
-    $('#q1c').innerHTML = '';
-    [a, b].forEach((txt, k) => {
-      const btn = document.createElement('button');
-      btn.className = 'btn'; btn.type = 'button'; btn.textContent = txt;
-      btn.addEventListener('click', () => pick(k === 0 ? b : a));
-      $('#q1c').appendChild(btn);
-    });
-    $('#q1n').textContent = '선택 ' + (qi + 1) + ' / ' + Q.length;
-  }
-  function pick(other) {
-    state.unchosen.push(other);
-    const before = state.uni;
-    setUni(state.uni * 2);
-    for (let i = 0; i < before; i++) {
-      const g = document.createElement('div');
-      g.className = 'fig ghost sm'; g.style.animationDelay = Math.min(i * 30, 600) + 'ms';
-      g.innerHTML = '<i class="h"></i><i class="n"></i><i class="b"></i>';
-      $('#ghosts').appendChild(g);
-    }
-    qi++;
-    renderQ();
-  }
-  renderQ();
-
-  /* ── 2 · 버스 점프 ── */
-  let taps = 0, tapT = null;
-  function startTap() { taps = 0; $('#tap').textContent = '0 / 7'; }
-  $('#tap').addEventListener('click', () => {
-    clearTimeout(tapT);
-    taps++;
-    if (taps > 7) { taps = 0; $('#tap').textContent = '여덟 번. 처음부터.'; tapT = setTimeout(() => $('#tap').textContent = '0 / 7', 900); return; }
-    $('#tap').textContent = taps + ' / 7';
-    if (taps === 7) {
-      tapT = setTimeout(() => {
-        state.jumps++; setUni(state.uni + 1);
-        $('#jumpA').classList.add('hidden'); $('#verseA').classList.remove('hidden');
-      }, 700);
-    }
-  });
-  $('#toB').addEventListener('click', () => {
-    $('#verseA').classList.add('hidden'); $('#jumpB').classList.remove('hidden'); $('#rev').focus();
-  });
-  $('#rev').addEventListener('input', (e) => {
-    if (e.target.value.trim() === '해랑사') {
-      state.jumps++; setUni(state.uni + 1);
-      setTimeout(() => { $('#jumpB').classList.add('hidden'); $('#verseB').classList.remove('hidden'); }, 400);
-    }
-  });
-  let stillT = null, stillStart = 0, stillOn = false;
-  function stillReset() {
-    if (!stillOn) return;
-    stillStart = performance.now();
-    $('#still').style.width = '0%';
-  }
-  function stillTick() {
-    if (!stillOn) return;
-    const p = Math.min(1, (performance.now() - stillStart) / 3000);
-    $('#still').style.width = (p * 100) + '%';
-    if (p >= 1) {
-      stillOn = false;
-      state.jumps++; setUni(state.uni + 1);
-      $('#jumpC').classList.add('hidden'); $('#verseC').classList.remove('hidden');
-      return;
-    }
-    stillT = requestAnimationFrame(stillTick);
-  }
-  ['pointermove', 'pointerdown', 'keydown', 'wheel', 'touchstart', 'scroll'].forEach((ev) => window.addEventListener(ev, stillReset, { passive: true, capture: true }));
-  $('#toC').addEventListener('click', () => {
-    $('#verseB').classList.add('hidden'); $('#jumpC').classList.remove('hidden');
-    stillOn = true; stillStart = performance.now() + 600; stillT = requestAnimationFrame(stillTick);
-  });
-
-  /* ── 3 · 베이글 ── */
-  function growBagel() {
-    const wrap = $('#bagelWrap');
-    wrap.querySelectorAll('.dot').forEach((d) => d.remove());
-    const W = wrap.clientWidth, H = wrap.clientHeight;
-    const n = Math.min(state.uni, 160);
-    const dots = [];
-    for (let i = 0; i < n; i++) {
-      const d = document.createElement('div');
-      d.className = 'dot';
-      d.style.left = (Math.random() * W) + 'px';
-      d.style.top = (Math.random() * H) + 'px';
-      wrap.appendChild(d); dots.push(d);
-    }
-    const b = $('#bagel');
-    b.style.width = '0'; b.style.height = '0'; b.style.borderWidth = '0';
-    requestAnimationFrame(() => {
-      setTimeout(() => {
-        b.style.width = '220px'; b.style.height = '220px'; b.style.borderWidth = '44px';
-        dots.forEach((d) => {
-          const dx = W / 2 - parseFloat(d.style.left), dy = H / 2 - parseFloat(d.style.top);
-          d.style.transform = 'translate(' + dx + 'px,' + dy + 'px) scale(.2)';
-          d.style.opacity = '0';
-        });
-      }, 300);
-    });
-  }
-  const IN = ['…', '아무 소리도 없다.', '아무것도 중요하지 않다. 정말로.', '그런데 누군가 당신의 소매를 붙잡고 있다.', '서류를 든 손이다.'];
-  $('#enterBagel').addEventListener('click', () => {
-    state.bagel = true;
-    $('#bagelIntro').classList.add('hidden'); $('#bagelIn').classList.remove('hidden');
-    let k = 0;
-    const t = setInterval(() => {
-      k++;
-      if (k < IN.length) { $('#bagelInTxt').textContent = IN[k]; return; }
-      clearInterval(t);
-      $('#bagelIn').classList.add('hidden'); $('#waymond').classList.remove('hidden'); renderEnemy();
-    }, 1100);
-  });
-  $('#stayOut').addEventListener('click', () => {
-    $('#bagelIntro').classList.add('hidden'); $('#waymond').classList.remove('hidden'); renderEnemy();
-  });
-
-  const E = [
-    { lbl: 'ENEMY 01 / 03<span class="ko">세무사</span>', bub: '연장 신청은 이번이 마지막입니다. 다음엔 압류예요.', fight: '서류를 집어던진다', hug: '허리가 아프시죠, 하고 묻는다', after: '그는 잠깐 멈춘다. 이 사람도 오늘 아침 혼자 일어났다는 것을, 당신은 처음 생각해본다.' },
-    { lbl: 'ENEMY 02 / 03<span class="ko">알파 우주 요원</span>', bub: '딸을 없애야 합니다. 그게 모든 우주를 구하는 길이에요.', fight: '먼저 친다', hug: '그의 등에 손을 얹는다', after: '요원은 당신을 뚫어져라 보다가 무기를 내린다. 그도 어느 우주에선가 누군가의 아들이었다.' },
-    { lbl: 'ENEMY 03 / 03<span class="ko">딸</span>', bub: '엄마는 어차피 이해 못 해. 그냥 보내줘.', fight: '"너 같은 애는 낳지 말 걸" 하고 말한다', hug: '"네가 어디로 가든, 나는 여기 있고 싶어" 하고 말한다', after: '딸은 울지 않는다. 대신 세탁소 앞에 잠깐 더 서 있는다.' },
-  ];
-  let ei = 0;
-  function renderEnemy() {
-    ei = 0; $('#enemyFig').classList.remove('eyed'); $('#toHere').classList.add('hidden'); showEnemy();
-  }
-  function showEnemy() {
-    const e = E[ei];
-    $('#enemyLbl').innerHTML = e.lbl;
-    $('#enemyBub').innerHTML = '<span class="t"><i></i><i></i><i></i></span>' + e.bub;
-    $('#enemyNote').textContent = '';
-    const box = $('#enemyBtns'); box.innerHTML = '';
-    [['fight', e.fight], ['hug', e.hug]].forEach(([kind, txt]) => {
-      const b = document.createElement('button');
-      b.className = 'btn'; b.type = 'button'; b.textContent = txt;
-      b.addEventListener('click', () => resolveEnemy(kind));
-      box.appendChild(b);
-    });
-  }
-  function resolveEnemy(kind) {
-    const e = E[ei];
-    if (kind === 'hug') {
-      state.hugs++;
-      $('#enemyFig').classList.add('eyed');
-      $('#enemyNote').textContent = e.after;
-    } else {
-      $('#enemyNote').textContent = '상대는 더 세게 되돌아온다. 베이글이 조금 커진다. 다시 고를 수 있다.';
-      return;
-    }
-    $('#enemyBtns').innerHTML = '';
-    const b = document.createElement('button');
-    b.className = 'btn'; b.type = 'button'; b.textContent = ei < E.length - 1 ? '다음' : '싸움이 끝났다';
-    b.addEventListener('click', () => {
-      ei++;
-      if (ei < E.length) { $('#enemyFig').classList.remove('eyed'); showEnemy(); }
-      else { $('#enemyBtns').innerHTML = ''; $('#toHere').classList.remove('hidden'); }
-    });
-    $('#enemyBtns').appendChild(b);
-  }
-
-  /* ── 4 · 지금 여기 ── */
-  $('#finish').addEventListener('click', () => {
-    state.keep = $('#keep').value.trim();
-    $('#r1').textContent = state.uni;
-    $('#r2').textContent = state.unchosen.length + '개';
-    $('#r3').textContent = state.jumps + '회';
-    $('#r4').textContent = state.hugs + '명';
-    $('#r5').textContent = state.bagel ? '했다가 돌아옴' : '거부';
-    $('#rsum').textContent = state.keep
-      ? '결론: ' + state.uni + '개 우주 중 1개를 남김. 남긴 이유 — "' + state.keep + '".'
-      : '결론: ' + state.uni + '개 우주 중 1개를 남김. 남긴 이유는 적지 않았으나, 남았다는 사실이 이유가 됨.';
-    $('#keepBox').classList.add('hidden'); $('#receipt').classList.remove('hidden');
-    setUni(1);
-  });
-  $('#again').addEventListener('click', () => location.reload());
-
-  /* hot-reload snapshot for open viewers */
-  const start = (data) => {
-    if (data && data.uni) { setUni(data.uni); }
+/* ───────────── 1비트 그리기 ───────────── */
+function bmp(w, h, fn, { invert = false, fat = false } = {}) {
+  const c = document.createElement('canvas'); c.width = w; c.height = h; c.className = 'bmp';
+  const g = c.getContext('2d'), img = g.createImageData(w, h), d = img.data;
+  const px = new Uint8Array(w * h);
+  const raw = (x, y, v = 1) => { if (x < 0 || y < 0 || x >= w || y >= h) return; px[y * w + x] = v ? 1 : 0; };
+  // fat: 모든 점을 2×2 블록으로 찍어 화면 전체의 픽셀 크기를 맞춘다
+  const set = fat ? (x, y, v = 1) => { x = Math.round(x) & ~1; y = Math.round(y) & ~1; raw(x, y, v); raw(x + 1, y, v); raw(x, y + 1, v); raw(x + 1, y + 1, v); }
+                  : (x, y, v = 1) => raw(Math.round(x), Math.round(y), v);
+  const get = (x, y) => px[y * w + x];
+  const lvAt = (lv, a, b) => typeof lv === 'function' ? lv(a, b) : lv;
+  const dot = (X, Y, lv) => { const bx = fat ? Math.round(X) >> 1 : X, by = fat ? Math.round(Y) >> 1 : Y; set(X, Y, BAYER[((by % 4) + 4) % 4][((bx % 4) + 4) % 4] < lv ? 1 : 0); };
+  const api = {
+    w, h, set, get,
+    line(x0, y0, x1, y1, v = 1) { const n = Math.max(Math.abs(x1 - x0), Math.abs(y1 - y0), 1); for (let i = 0; i <= n; i++) set(x0 + (x1 - x0) * i / n, y0 + (y1 - y0) * i / n, v); },
+    hline(x0, x1, y, v = 1) { for (let x = x0; x <= x1; x++) set(x, y, v); },
+    vline(x, y0, y1, v = 1) { for (let y = y0; y <= y1; y++) set(x, y, v); },
+    circle(cx, cy, r, v = 1) { for (let y = -r - 1; y <= r + 1; y++) for (let x = -r - 1; x <= r + 1; x++) { const dd = Math.hypot(x, y); if (dd <= r + .5 && dd > r - .6) set(cx + x, cy + y, v); } },
+    disc(cx, cy, r, lv = 16) { for (let y = -r; y <= r; y++) for (let x = -r; x <= r; x++) if (x * x + y * y <= r * r + r * .8) dot(Math.round(cx + x), Math.round(cy + y), lvAt(lv, x, y)); },
+    rect(x, y, rw, rh, v = 1) { api.hline(x, x + rw, y, v); api.hline(x, x + rw, y + rh, v); api.vline(x, y, y + rh, v); api.vline(x + rw, y, y + rh, v); },
+    frect(x, y, rw, rh, lv = 16) { for (let j = 0; j < rh; j++) for (let i = 0; i < rw; i++) dot(x + i, y + j, lvAt(lv, i, j)); },
+    clear(x, y, rw, rh) { for (let j = 0; j < rh; j++) for (let i = 0; i < rw; i++) set(x + i, y + j, 0); },
+    box(x, y, rw, rh, lv = 0) { api.frect(x, y, rw, rh, lv); api.rect(x, y, rw, rh); },
+    // 픽셀 폰트 글자를 1비트로 찍는다
+    text(str, x, y, { px = 11, font = 'Galmuri11', v = 1, align = 'left' } = {}) {
+      const t = document.createElement('canvas'), tg = t.getContext('2d'); tg.font = `${px}px ${font}`;
+      const tw = Math.ceil(tg.measureText(str).width) + 2, th = px + 4; t.width = tw; t.height = th;
+      tg.font = `${px}px ${font}`; tg.fillStyle = '#fff'; tg.textBaseline = 'top'; tg.fillText(str, 1, 1);
+      const td = tg.getImageData(0, 0, tw, th).data, ox = align === 'center' ? x - tw / 2 : align === 'right' ? x - tw : x;
+      for (let j = 0; j < th; j++) for (let i = 0; i < tw; i++) if (td[(j * tw + i) * 4 + 3] > 140) raw(Math.round(ox + i), Math.round(y + j), v);
+      return tw;
+    },
+    sprite(rows, ox, oy, sc = 1) { rows.forEach((row, y) => [...row].forEach((ch, x) => { if (ch === '.') return; for (let a = 0; a < sc; a++) for (let b2 = 0; b2 < sc; b2++) set(ox + x * sc + a, oy + y * sc + b2, ch === 'X' ? 1 : 0); })); },
+    star(x, y, s = 2) { for (let k = -s; k <= s; k++) { set(x + k, y); set(x, y + k); } },
   };
-  window.claude?.hot?.snapshot?.(() => ({ uni: state.uni }));
-  window.claude?.hot?.ready ? window.claude.hot.ready(start) : start(window.claude?.hot?.data ?? {});
-})();
+  fn(api);
+  for (let i = 0; i < w * h; i++) { const on = invert ? !px[i] : px[i]; d[i * 4] = d[i * 4 + 1] = d[i * 4 + 2] = on ? 255 : 0; d[i * 4 + 3] = 255; }
+  g.putImageData(img, 0, 0); return c;
+}
+
+/* 커서 손 (카드 시안과 같은 모양) */
+const HAND = ['.....XX.........','....XOOX........','....XOOX........','....XOOX........','....XOOXXX......','....XOOXOOXXX...','....XOOXOOXOOXX.','.XX.XOOXOOXOOXOX','XOOXXOOOOOOOOXOX','XOOOXOOOOOOOOOOX','.XOOXOOOOOOOOOOX','..XOOOOOOOOOOOOX','..XOOOOOOOOOOOX.','...XOOOOOOOOOOX.','...XOOOOOOOOOX..','....XOOOOOOOOX..','....XOOOOOOOOX..','....XXXXXXXXXX..'];
+
+/* 사람: 배경 슬라이드 만화와 같은 결. 흰 얼굴, 검은 머리, 검은 몸. 말하는 사람만 꽉 찬 몸 */
+function person(b, cx, base, style, lit) {
+  const hy = base - 46, r = 13;
+  // 몸
+  for (let y = 0; y < 30; y++) { const hw = 11 + y * .55; for (let x = -hw; x <= hw; x++) { const X = Math.round(cx + x), Y = base - 30 + y; if (lit || Math.abs(x) > hw - 1.5 || y === 0) b.set(X, Y); else b.set(X, Y, BAYER[(Y >> 1) & 3][(X >> 1) & 3] < 5 ? 1 : 0); } }
+  b.hline(cx - 3, cx + 3, base - 31); b.vline(cx - 3, base - 34, base - 31); b.vline(cx + 3, base - 34, base - 31);
+  // 얼굴
+  b.disc(cx, hy, r, 0); b.circle(cx, hy, r);
+  const hair = (fn) => { for (let y = -r; y <= r; y++) for (let x = -r; x <= r; x++) if (x * x + y * y <= r * r + r && fn(x, y)) b.set(cx + x, hy + y); };
+  if (style === 0) { hair((x, y) => y < -7); b.rect(cx - 9, hy - 1, 6, 4); b.rect(cx + 3, hy - 1, 6, 4); b.hline(cx - 3, cx + 3, hy); }        // 교수: 짧은 머리, 안경
+  if (style === 1) { hair((x, y) => y < -4 || (Math.abs(x) > 9 && y < 10)); for (let y = 0; y < 12; y++) { b.set(cx - r - 1, hy + y); b.set(cx - r, hy + y); b.set(cx + r, hy + y); b.set(cx + r + 1, hy + y); } } // 긴 머리
+  if (style === 2) { hair((x, y) => y < -5 || (x < -8 && y < 2)); b.disc(cx + 2, hy - r - 4, 5, 16); }                                         // 올림머리
+  if (style === 3) { hair((x, y) => y < -6); b.frect(cx - r, hy - r - 1, r * 2 + 1, 6, 16); b.frect(cx + r - 2, hy - 7, 10, 3, 16); }        // 모자
+  if (style === 4) { hair((x, y) => y < -5 || (x > 6 && y < 0)); b.rect(cx - 9, hy - 1, 6, 4); b.rect(cx + 3, hy - 1, 6, 4); b.hline(cx - 3, cx + 3, hy); } // 안경, 옆가르마
+  if (style === 5) { hair((x, y) => y < -6); b.disc(cx - r - 2, hy - 2, 4, 16); }                                                             // 묶은 머리
+  // 눈, 입
+  if (style !== 0 && style !== 4) { b.frect(cx - 6, hy, 2, 3, 16); b.frect(cx + 5, hy, 2, 3, 16); }
+  else { b.set(cx - 6, hy + 1); b.set(cx + 6, hy + 1); }
+  b.hline(cx - 2, cx + 2, hy + 7);
+  if (lit) { b.set(cx - 1, hy + 8); b.set(cx + 1, hy + 8); }
+}
+
+/* 점성술사: 후드, 구슬, 양손 */
+function teller(b, t = 0) {
+  const cx = 160;
+  const hood = (x, y) => y < 50 ? Math.hypot(x, (y - 48) * 1.1) < 44 : Math.abs(x) < 44 + (y - 50) * .9;
+  // 후드와 망토: 하얗게 꽉 채운 덩어리 (예전 시안처럼 굵게)
+  for (let y = 0; y < 125; y += 2) for (let x = -96; x <= 96; x += 2) if (hood(x, y)) b.set(cx + x, 20 + y);
+  // 얼굴: 검은 테두리 안의 하얀 얼굴, 검은 앞머리
+  for (let y = -22; y <= 24; y += 2) for (let x = -20; x <= 20; x += 2) if ((x * x) / 400 + (y * y) / 576 <= 1) b.set(cx + x, 62 + y, 0);
+  for (let y = -18; y <= 20; y += 2) for (let x = -16; x <= 16; x += 2) if ((x * x) / 256 + (y * y) / 400 <= 1) b.set(cx + x, 62 + y, 1);
+  for (let x = -18; x <= 18; x += 2) for (let y = 0; y < 10 - Math.abs(x) / 2.5; y += 2) b.set(cx + x, 44 + y, 0);
+  const blink = t % 37 === 0;
+  if (!blink) { b.frect(cx - 10, 62, 4, 6, 0); b.frect(cx + 6, 62, 4, 6, 0); } else { b.hline(cx - 10, cx - 6, 66, 0); b.hline(cx + 6, cx + 10, 66, 0); }
+  b.hline(cx - 4, cx + 4, 76, 0); b.set(cx - 6, 74, 0); b.set(cx + 6, 74, 0);
+  // 귀걸이
+  for (const sd of [-1, 1]) { b.set(cx + sd * 22, 74); b.frect(cx + sd * 22 - 2, 78, 4, 4, 16); }
+  // 망토의 별 (검게 뚫린)
+  [[-58, 112], [-34, 130], [34, 130], [58, 112], [-72, 138], [72, 138]].forEach(([x, y]) => { for (let k = -4; k <= 4; k += 2) { b.set(cx + x + k, y, 0); b.set(cx + x, y + k, 0); } });
+  // 구슬: 검은 테두리로 망토와 떼어 놓고, 안은 굵은 디더링
+  b.disc(cx, 128, 32, 0);
+  b.disc(cx, 128, 28, (x, y) => Math.max(1, 15 - Math.hypot(x + 10, y + 10) / 2.8));
+  b.circle(cx, 128, 29);
+  b.frect(cx - 16, 112, 6, 4, 0);
+  for (let y = 0; y < 10; y += 2) b.hline(cx - 16 - y, cx + 16 + y, 160 + y);
+  // 손
+  for (const sd of [-1, 1]) { const hx = cx + sd * 34; b.disc(hx, 140, 9, 0); b.disc(hx, 140, 7, 16); b.hline(hx - 5, hx + 5, 138, 0); }
+}
+
+let BG = { kind: 'black', cast: [], speaker: null };
+const LIGHT = { day: 1, phone: 1, meet: 1, class: 1 };
+let tick = 0;
+function drawBg() {
+  const { kind, cast, speaker, left = 70, right = 250 } = BG;
+  const c = bmp(W, H, b => {
+    if (kind === 'shop') {
+      for (let i = 0; i < 60; i++) b.set((i * 73 + 11) % W, (i * 37) % 110);
+      for (let y = 0; y < 170; y++) { const lv = Math.max(0, 7 - y / 30); b.frect(0, y, 36 - Math.round(Math.sin(y / 9) * 3), 1, lv); b.frect(284 + Math.round(Math.sin(y / 9) * 3), y, 40, 1, lv); }
+      teller(b, tick);
+      b.frect(0, 165, W, 35, (x, y) => 3 + (y % 6 === 0 ? 8 : 0)); b.hline(0, W, 164);
+      for (const x of [62, 258]) { b.frect(x - 4, 128, 9, 36, 16); b.vline(x, 120, 127); b.disc(x, 116, 3, 16); b.disc(x, 112, 2, 16); b.frect(x - 18, 100, 37, 30, (i, j) => Math.max(0, 3 - Math.hypot(i - 18, j - 14) / 6)); }
+    } else if (kind === 'desk') {
+      b.rect(24, 14, 80, 64); b.vline(64, 14, 78); b.hline(24, 104, 46); b.disc(86, 30, 8, 13); b.disc(90, 27, 7, 0); for (let i = 0; i < 8; i++) b.set(30 + i * 9, 18 + (i * 7) % 24);
+      // 노트북, 겹친 창
+      b.rect(122, 52, 120, 82); b.rect(126, 56, 112, 74);
+      b.box(132, 62, 66, 48); b.frect(133, 63, 65, 7, 16); b.text('휴학 신청서', 135, 72, { px: 9, font: 'Galmuri9' }); for (let k = 0; k < 3; k++) b.hline(136, 186 - k * 10, 88 + k * 6);
+      b.box(170, 80, 62, 44); b.frect(171, 81, 61, 7, 16); for (let i = 0; i < 5; i++) b.vline(172 + i * 12, 89, 123); for (let j = 0; j < 4; j++) b.hline(171, 231, 89 + j * 9);
+      b.frect(184, 98, 11, 8, 16); b.frect(208, 107, 11, 8, 16);
+      for (let y = 0; y < 8; y++) b.hline(114 - y, 250 + y, 134 + y);
+      // 휴대폰과 알림
+      b.rect(262, 112, 24, 36); b.frect(264, 116, 21, 26, 2); b.disc(284, 112, 6, 16); b.text('9', 282, 106, { px: 9, font: 'Galmuri9', v: 0 });
+      // 스탠드 불빛
+      b.line(40, 150, 52, 96); b.line(52, 96, 76, 84); b.frect(70, 78, 16, 8, 16);
+      for (let y = 86; y < 150; y++) b.frect(56 - (y - 86) * .5, y, 40 + (y - 86), 1, Math.max(0, 6 - (y - 86) / 12));
+      b.hline(0, W, 150); b.frect(0, 151, W, 49, 2);
+    } else if (kind === 'alley') {
+      for (let i = 0; i < 50; i++) b.set((i * 61 + 7) % W, (i * 23) % 50);
+      const bld = (x, y, w, h, seed) => { b.rect(x, y, w, h); for (let j = y + 10; j < y + h - 14; j += 18) for (let i = x + 8; i < x + w - 14; i += 18) { b.rect(i, j, 10, 10); if ((i * 7 + j * 3 + seed) % 5 === 0) b.frect(i + 1, j + 1, 9, 9, 9); } };
+      bld(4, 20, 84, 150, 1); bld(232, 6, 88, 164, 3);
+      // 가게
+      b.rect(104, 70, 112, 100); b.box(96, 52, 128, 22, 16);
+      b.text('점 · 타로 · 24시', 160, 57, { px: 11, v: 0, align: 'center' });
+      b.rect(116, 96, 36, 40); b.disc(134, 116, 9, (x, y) => 12 - Math.hypot(x + 3, y + 3)); b.circle(134, 116, 9);
+      b.rect(170, 92, 34, 78); b.frect(171, 93, 33, 77, (x, y) => Math.max(0, 10 - y / 8)); b.disc(198, 132, 2, 16);
+      b.frect(96, 171, 128, 29, (x, y) => Math.max(0, 8 - y / 3 - Math.abs(x - 64) / 16));
+      b.hline(0, W, 170); b.vline(60, 60, 170); b.hline(54, 66, 60); b.disc(60, 66, 4, 16); b.frect(44, 70, 33, 30, (x, y) => Math.max(0, 4 - y / 7));
+    } else if (kind === 'day') {
+      for (let x = 20; x < W; x += 60) { b.hline(x, x + 30, 4); b.hline(x + 4, x + 26, 6); }
+      b.box(28, 16, 132, 66); b.frect(29, 17, 131, 13, 16); b.text('오늘의 학식', 94, 19, { px: 9, font: 'Galmuri9', v: 0, align: 'center' });
+      [['A 제육덮밥', '4,500'], ['B 비빔밥', '4,000'], ['C 돈코츠라멘', '5,200']].forEach(([a, p], k) => { b.text(a, 36, 34 + k * 12, { px: 9, font: 'Galmuri9' }); b.text(p, 152, 34 + k * 12, { px: 9, font: 'Galmuri9', align: 'right' }); });
+      b.text('※ B코너 딸기우유 증정', 36, 70, { px: 9, font: 'Galmuri9' });
+      // 분식 입간판
+      b.line(250, 70, 236, 150); b.line(290, 70, 304, 150); b.box(246, 70, 48, 58); b.text('분식', 270, 76, { px: 11, align: 'center' }); b.hline(252, 288, 92); b.text('야채김밥', 270, 98, { px: 9, font: 'Galmuri9', align: 'center' }); b.text('쌀떡', 270, 112, { px: 9, font: 'Galmuri9', align: 'center' });
+      b.hline(0, W, 150); b.frect(0, 151, W, 49, (x, y) => (x + y * 3) % 16 === 0 ? 16 : 0);
+    } else if (kind === 'phone') {
+      b.rect(84, 4, 152, 200); b.rect(88, 8, 144, 200); b.hline(146, 174, 12); b.hline(88, 232, 32); b.text('민지', 160, 18, { px: 11, align: 'center' });
+      // 실제로 온 메시지가 아래에서부터 쌓인다
+      const wrap = t => { const out = []; let cur = ''; for (const ch of t) { cur += ch; if (cur.length >= 14) { out.push(cur); cur = ''; } } if (cur) out.push(cur); return out.slice(0, 3); };
+      let y = 140;
+      for (let i = (BG.chat || []).length - 1; i >= 0 && y > 40; i--) {
+        const m = BG.chat[i], lines = wrap(m.t), w = Math.max(...lines.map(l => l.length)) * 9 + 10, hgt = lines.length * 11 + 6;
+        y -= hgt + 4; if (y < 36) break;
+        const x = m.me ? 224 - w : 96;
+        b.box(x, y, w, hgt, m.me ? 16 : 0);
+        lines.forEach((l, k) => b.text(l, x + 5, y + 3 + k * 11, { px: 9, font: 'Galmuri9', v: m.me ? 0 : 1 }));
+      }
+    } else if (kind === 'meet') {
+      b.box(24, 10, 150, 72); b.text('발표 주제', 32, 16, { px: 9, font: 'Galmuri9' }); b.hline(32, 80, 29);
+      b.text('1 자료 조사', 34, 36, { px: 9, font: 'Galmuri9' }); b.text('2 인터뷰', 34, 50, { px: 9, font: 'Galmuri9' }); b.text('3 현장 관찰', 34, 64, { px: 9, font: 'Galmuri9' });
+      b.circle(140, 50, 14); b.text('?', 136, 43, { px: 13 }); b.line(100, 40, 124, 46); b.line(96, 66, 124, 56);
+      b.rect(216, 12, 80, 56); for (let y = 16; y < 66; y += 5) b.hline(218, 294, y);
+    } else if (kind === 'room') {
+      b.rect(196, 12, 56, 46); b.vline(224, 12, 58); b.hline(196, 252, 35); b.disc(240, 24, 6, 12); b.disc(243, 22, 5, 0);
+      b.box(270, 20, 34, 46); b.text('♪', 280, 30, { px: 13 }); b.star(296, 56, 2);
+      b.box(176, 120, 140, 30); b.frect(177, 121, 139, 10, 4); b.rect(176, 104, 16, 16);
+      b.hline(0, W, 150); b.frect(0, 151, W, 49, 2);
+    } else if (kind === 'class') {
+      b.box(170, 8, 140, 52, 16); for (let k = 0; k < 4; k++) b.hline(180, 260 - k * 14, 18 + k * 9, 0);
+      b.text('감상 · 무제', 300, 48, { px: 9, font: 'Galmuri9', v: 0, align: 'right' });
+    }
+    if (cast.length) {
+      const step = cast.length > 1 ? (right - left) / (cast.length - 1) : 0;
+      cast.forEach((p, i) => person(b, Math.round(cast.length > 1 ? left + i * step : (left + right) / 2), 156, p.style, p.name === speaker));
+    }
+    if (kind === 'meet') { b.box(0, 140, W, 60); b.frect(1, 141, W - 1, 6, 16); b.box(60, 128, 44, 14); b.box(210, 128, 44, 14); }
+    if (kind === 'class') { b.box(150, 142, 170, 58); b.frect(151, 143, 169, 5, 16); }
+  }, { invert: !!LIGHT[kind], fat: true });
+  ctx.drawImage(c, 0, 0);
+}
+const setScene = (kind, cast = [], opt = {}) => { BG = { kind, cast, speaker: null, ...opt }; drawBg(); };
+setInterval(() => { tick++; if (BG.kind === 'shop') drawBg(); }, 120);
+
+/* ───────────── 카드 (Figma 비트 아르카나 시안과 같은 규칙: 70×120) ───────────── */
+const GW = 70, GH = 120;
+function cardArt(fn, dark = false) {
+  return bmp(GW, GH, b => {
+    const frame = () => { b.rect(2, 2, GW - 5, GH - 5); b.rect(4, 4, GW - 9, GH - 9); b.hline(4, GW - 5, 16); b.hline(4, GW - 5, GH - 21); };
+    frame(); fn(b);
+  }, { invert: !dark });
+}
+const CARD_BACK = () => bmp(GW, GH, b => {
+  b.rect(2, 2, GW - 5, GH - 5); b.rect(4, 4, GW - 9, GH - 9); b.rect(12, 12, GW - 25, GH - 25);
+  const GL = { 0: ['111', '101', '101', '101', '111'], 1: ['010', '110', '010', '010', '111'] };
+  const bits = (str, y) => [...str].forEach((ch, i) => GL[ch].forEach((row, j) => [...row].forEach((c, k) => { if (c === '1') b.set(7 + i * 4 + k, y + j); })));
+  bits('01011001010001', 6); bits('01001110010011', GH - 11);
+  for (let y = 14; y < GH - 14; y += 3) { const bit = ((y * 7) >> 2) % 2; b.hline(6, bit ? 9 : 7, y); b.hline(bit ? GW - 10 : GW - 8, GW - 7, y); }
+  const cx = 35, cy = 56, r = 15;
+  b.disc(cx, cy, r, (x, y) => Math.max(0, 14 - Math.hypot(x + 6, y + 6) / 1.6)); b.circle(cx, cy, r);
+  for (let y = 0; y < 6; y++) b.hline(cx - 10 + y, cx + 10 - y, 80 - y); b.hline(cx - 12, cx + 12, 81);
+  [[1,0],[-1,0],[0,-1],[1,1],[-1,1],[1,-1],[-1,-1]].forEach(([dx, dy]) => { for (let t = r + 3; t < r + 11; t += 2) { const k = dx && dy ? 1.414 : 1; const x = Math.round(cx + dx * t / k), y = Math.round(cy + dy * t / k); if (x > 13 && x < 56 && y > 13 && y < 76) b.set(x, y); } });
+  [[19, 22], [51, 22], [19, 94], [51, 98], [35, 103]].forEach(([x, y]) => b.star(x, y, 2));
+  for (let k = 0; k < 5; k++) { const x = 19 + k * 8; b.set(x, 88); b.set(x - 1, 89); b.set(x + 1, 89); b.set(x, 90); }
+});
+// 카드마다 다른 그림. 모두 흑백 비트와 디더링, 손 커서
+const ART = {
+  구독: b => { for (const cx of [24, 46]) { b.circle(cx, 52, 10); b.circle(cx, 52, 9); } b.frect(31, 44, 9, 16, 0); b.line(30, 44, 40, 60); b.line(30, 60, 40, 44); b.line(31, 44, 41, 60); b.line(31, 60, 41, 44); b.rect(12, 74, 46, 20); for (let k = 0; k < 6; k++) b.rect(15 + k * 7, 78, 4, 4); b.frect(16, 79, 3, 3, 16); for (let k = 0; k < 6; k++) b.rect(15 + k * 7, 86, 4, 4); },
+  조화: b => { b.disc(35, 62, 15, (x, y) => 4 + (Math.hypot(x, y) < 8 ? 6 : 0)); b.circle(35, 62, 15); for (let k = 0; k < 4; k++) { const a = k * Math.PI / 2 + Math.PI / 4, x = 35 + Math.cos(a) * 24, y = 62 + Math.sin(a) * 24; b.disc(x, y, 5, 0); b.circle(x, y, 5); b.set(x - 2, y); b.set(x + 2, y); } for (let y = 0; y < 6; y++) b.hline(29 + y / 2, 41 - y / 2, 58 + y); b.vline(33, 52, 56); b.vline(37, 50, 56); },
+  고요: b => { b.frect(5, 17, 61, 81, (x, y) => Math.max(1, 12 - y / 6)); b.disc(35, 48, 14, 0); b.disc(35, 48, 13, 16); b.disc(41, 44, 12, 0); b.frect(5, 82, 61, 16, 0); b.rect(24, 70, 22, 26); b.hline(24, 46, 70); b.line(24, 70, 35, 62); b.line(46, 70, 35, 62); b.frect(32, 82, 6, 14, 16); const z = (x, y, s) => { b.hline(x, x + s, y); b.line(x + s, y, x, y + s); b.hline(x, x + s, y + s); }; z(50, 64, 4); z(56, 56, 3); },
+  목소리: b => { b.box(12, 26, 46, 30); b.line(22, 56, 18, 66); b.line(18, 66, 30, 56); for (let k = 0; k < 3; k++) for (let a = -0.9; a <= 0.9; a += 0.05) b.set(26 + Math.cos(a) * (6 + k * 6), 41 + Math.sin(a) * (6 + k * 6)); b.disc(22, 41, 3, 16); b.frect(5, 72, 61, 26, (x, y) => Math.max(0, y / 3)); b.sprite(HAND, 30, 74, 1); },
+  취향: b => { b.rect(8, 34, 26, 44); b.rect(36, 34, 26, 44); b.vline(35, 34, 78); b.circle(20, 50, 6); b.line(14, 62, 28, 66); b.star(26, 44, 1); for (let k = 0; k < 6; k++) b.hline(40, 58 - (k % 3) * 5, 40 + k * 6); b.line(44, 22, 62, 30); b.line(44, 22, 42, 26); b.line(42, 26, 60, 34); b.line(62, 30, 60, 34); },
+  여백: b => { for (let y = 22; y < 94; y += 2) { b.set(10, y); b.set(60, y); } for (let x = 10; x <= 60; x += 2) { b.set(x, 22); b.set(x, 94); } b.rect(26, 52, 18, 4); b.vline(27, 56, 82); b.vline(43, 56, 82); b.vline(26, 32, 52); b.vline(29, 32, 52); b.hline(26, 29, 32); b.line(31, 86, 39, 84); b.line(39, 84, 40, 88); b.line(31, 86, 32, 89); b.line(32, 89, 40, 88); },
+  창: b => { b.rect(14, 24, 42, 50); b.vline(35, 24, 74); b.line(35, 24, 46, 30); b.line(46, 30, 46, 70); b.line(46, 70, 35, 74); b.frect(15, 25, 20, 49, (x, y) => Math.max(0, 9 - y / 6)); for (let k = 0; k < 4; k++) b.line(20 + k * 6, 76, 10 + k * 12, 98); },
+};
+const CARD_EN = { 구독: 'RENEW', 조화: 'HARMONY', 고요: 'QUIET', 목소리: 'VOICE', 취향: 'TASTE', 여백: 'BLANK', 창: 'WINDOW' };
+
+/* 손글씨: Gaegu를 작게 그려 1비트로 깎는다 */
+function hand(text, px = 15) {
+  const lines = String(text).split('\n');
+  const c = document.createElement('canvas'), g = c.getContext('2d');
+  g.font = `${px}px Gaegu`;
+  const w = Math.ceil(Math.max(...lines.map(l => g.measureText(l).width))) + 6, lh = Math.round(px * 1.15), h = lines.length * lh + 6;
+  c.width = w; c.height = h; g.font = `${px}px Gaegu`; g.fillStyle = '#fff'; g.textBaseline = 'top';
+  lines.forEach((l, i) => g.fillText(l, 3, 3 + i * lh));
+  const img = g.getImageData(0, 0, w, h), d = img.data;
+  for (let i = 0; i < d.length; i += 4) { const on = d[i + 3] > 120; d[i] = d[i + 1] = d[i + 2] = 255; d[i + 3] = on ? 255 : 0; }
+  g.putImageData(img, 0, 0); c.className = 'bmp'; return c;
+}
+
+function notebook() {
+  const wrap = document.createElement('div'); wrap.className = 'pages';
+  wrap.appendChild(bmp(120, 70, b => { // 분식집에서 본 민지의 옆얼굴
+    b.line(50, 14, 44, 22); b.line(44, 22, 46, 30); b.line(46, 30, 40, 36); b.line(40, 36, 46, 38); b.line(46, 38, 44, 44); b.line(44, 44, 48, 50); b.line(48, 50, 56, 52); b.line(56, 52, 58, 62);
+    b.line(50, 14, 64, 10); b.line(64, 10, 78, 16); b.line(78, 16, 82, 32); b.line(82, 32, 76, 48); b.line(76, 48, 74, 62);
+    b.disc(72, 8, 4, 16); b.set(52, 28); b.set(53, 28); b.line(90, 40, 104, 40); b.line(92, 46, 100, 46);
+  }));
+  wrap.appendChild(bmp(120, 70, b => { // 버스 창문
+    b.rect(14, 10, 92, 44); b.line(60, 10, 60, 54); b.frect(15, 11, 45, 43, (x, y) => y > 30 ? 3 : 0); b.line(20, 40, 50, 36); b.line(66, 46, 100, 30);
+    b.disc(88, 22, 4, 10); b.line(14, 60, 106, 60);
+  }));
+  wrap.appendChild(bmp(120, 70, b => { // 이름 모를 사람의 손
+    b.line(20, 60, 44, 44); b.line(44, 44, 60, 30); b.line(60, 30, 64, 33); b.line(64, 33, 54, 46); b.line(54, 46, 72, 40); b.line(72, 40, 74, 44); b.line(74, 44, 58, 54); b.line(58, 54, 40, 64);
+    b.line(60, 30, 66, 22); b.line(66, 22, 69, 24); b.line(69, 24, 63, 33);
+  }));
+  return wrap;
+}
+function photo() { // 늦은 오후의 방. 조금 열린 창문, 빈 의자, 의자 아래 접힌 종이
+  return bmp(150, 92, b => {
+    b.rect(1, 1, 147, 89);
+    b.rect(90, 10, 40, 46); b.line(110, 10, 110, 56); b.line(110, 10, 120, 14); b.line(120, 14, 120, 52); b.line(120, 52, 110, 56);
+    b.frect(2, 2, 146, 87, (x, y) => { const d = Math.abs((x - 40) - (y - 90) * -0.9) ; return x < 92 && y > 40 && d < 30 ? 3 : 0; });
+    b.line(2, 66, 147, 66);
+    b.rect(46, 40, 22, 4); b.line(48, 44, 48, 72); b.line(66, 44, 66, 72); b.line(46, 40, 46, 18); b.line(46, 18, 50, 16); b.line(50, 16, 50, 40);
+    b.line(54, 70, 62, 68); b.line(62, 68, 64, 72); b.line(54, 70, 56, 74); b.line(56, 74, 64, 72);
+  });
+}
+
+/* ───────────── 화면 조각 ───────────── */
+const label = $('#label'), view = $('#view'), vb = $('#vb'), side = $('#side'), choicesEl = $('#choices');
+const box = $('#box'), nameEl = $('#name'), textEl = $('#text'), moreEl = $('#more'), card = $('#card');
+const askBtn = $('#ask'), nudgeEl = $('#nudge'), nextEl = $('#next');
+
+function openView(title, sub, node) { $('#vt').textContent = title; $('#vs').textContent = sub; vb.innerHTML = ''; vb.appendChild(node); vb.scrollTop = 0; view.classList.add('show'); side.classList.add('right'); }
+function closeView() { view.classList.remove('show'); side.classList.remove('right'); }
+function showThought(text) { $('#veil').classList.add('show'); const t = document.createElement('div'); t.className = 'thought' + (text.includes('\n') ? ' two' : ''); t.appendChild(hand(text)); side.appendChild(t); }
+const clearSide = () => { side.innerHTML = ''; $('#veil').classList.remove('show'); };
+function setAsk(on, size = .86, hot = false) { askBtn.classList.toggle('show', on); askBtn.style.fontSize = size + 'em'; askBtn.classList.toggle('hot', hot); askBtn.disabled = false; if (!on) nudge(''); }
+function nudge(t) { nudgeEl.textContent = t; nudgeEl.classList.toggle('show', !!t); }
+
+/* ───────────── 진행 ─────────────
+   resolver는 지금 기다리는 입력 하나. 화면 클릭은 'next', 점성술사 버튼은 'skip'. */
+let epoch = 0, resolver = null, typing = null, skipFlag = false, idleT;
+const ABORT = Symbol('abort');
+const live = E => { if (E !== epoch) throw ABORT; };
+
+function type(who, text) {
+  box.classList.add('show'); nameEl.textContent = who || ''; textEl.textContent = ''; moreEl.classList.remove('show');
+  if (BG.kind === 'phone' && who) { (BG.chat = BG.chat || []).push({ me: who === '나', t: String(text) }); drawBg(); }
+  if (BG.cast.length) { BG.speaker = who; drawBg(); }
+  return new Promise(res => {
+    let i = 0; const s = String(text);
+    const id = setInterval(() => { textEl.textContent = s.slice(0, ++i); if (i >= s.length) done(); }, 30);
+    const done = () => { clearInterval(id); typing = null; textEl.textContent = s; res(); };
+    typing = { finish: done, stop: () => clearInterval(id) };
+  });
+}
+const wait = () => new Promise(r => { resolver = r; });
+async function say(E, who, text) {
+  await type(who, text); live(E); if (skipFlag) return;
+  moreEl.classList.add('show'); await wait(); live(E); moreEl.classList.remove('show');
+}
+const N = (E, text) => say(E, '', text);
+async function fullCard(E, html, { auto } = {}) {
+  card.innerHTML = html; card.classList.add('show'); box.classList.remove('show');
+  if (auto) await sleep(auto); else await wait();
+  live(E); card.classList.remove('show');
+}
+async function waitNext(E) { nextEl.classList.add('show'); await wait(); live(E); nextEl.classList.remove('show'); }
+
+document.addEventListener('click', e => {
+  resetIdle();
+  if (e.target.closest('#ask') || e.target.closest('.opt') || e.target.closest('.answer') || e.target.closest('#view') || e.target.closest('.spread')) return;
+  if (typing) { typing.finish(); return; }
+  if (resolver) { const r = resolver; resolver = null; r('next'); }
+});
+document.addEventListener('keydown', e => { if (e.code === 'Space' || e.code === 'Enter') { e.preventDefault(); document.body.click(); } });
+askBtn.addEventListener('click', () => {
+  if (!askBtn.classList.contains('show') || askBtn.disabled) return;
+  skipFlag = true; setAsk(false); choicesEl.classList.remove('show');
+  if (typing) typing.finish();
+  if (resolver) { const r = resolver; resolver = null; r('skip'); }
+});
+function resetIdle() { clearTimeout(idleT); idleT = setTimeout(restart, 150000); }
+
+async function choose(E, q, opts) {
+  await type('', q); live(E); if (skipFlag) return null;
+  choicesEl.innerHTML = ''; choicesEl.classList.add('show');
+  const picked = await new Promise(res => {
+    const arm = () => { resolver = v => v === 'skip' ? res(null) : arm(); };
+    arm();
+    opts.forEach(o => { const b = document.createElement('button'); b.className = 'opt'; b.textContent = o.label; b.onclick = () => { resolver = null; choicesEl.classList.remove('show'); res(o); }; choicesEl.appendChild(b); });
+  });
+  live(E); return picked;
+}
+async function waitSkip(E) { let v; do { v = await wait(); live(E); } while (v !== 'skip'); }
+
+/* 카드 뽑기: 펼쳐진 카드 중 한 장을 직접 고른다. 장면이 지날수록 펼치는 장수가 줄어든다 */
+function flipEl({ ttl, num }) {
+  const f = document.createElement('div'); f.className = 'flip';
+  f.innerHTML = `<div class="in"><div class="face back"></div><div class="face front"><div class="num">${num}</div><div class="nm">${CARD_EN[ttl] || ''}</div></div></div>`;
+  f.querySelector('.back').appendChild(CARD_BACK());
+  f.querySelector('.front').prepend(cardArt(ART[ttl] || (() => {})));
+  return f;
+}
+async function pickCard(E, data, n, prompt, echo = []) {
+  clearSide();
+  if (echo.length) { const ec = document.createElement('div'); ec.className = 'echo'; ec.innerHTML = echo.slice(-5).map((t, k) => `<span style="animation-delay:${k * 160}ms">${esc(t)}</span>`).join(''); side.appendChild(ec); }
+  $('#veil').classList.add('show');
+  const sp = document.createElement('div'); sp.className = 'spread';
+  const cards = Array.from({ length: n }, (_, k) => { const f = flipEl(data); f.style.setProperty('--r', ((k - (n - 1) / 2) * 7) + 'deg'); f.style.animationDelay = k * 80 + 'ms'; sp.appendChild(f); return f; });
+  side.appendChild(sp);
+  type(T, prompt);
+  const chosen = await new Promise(res => cards.forEach(f => f.addEventListener('click', () => res(f), { once: true })));
+  live(E); if (typing) typing.finish(); box.classList.remove('show');
+  side.querySelector('.echo')?.remove();
+  cards.forEach(f => { if (f !== chosen) f.classList.add('gone'); }); chosen.classList.add('chosen');
+  await sleep(450); live(E);
+  cards.forEach(f => { if (f !== chosen) f.remove(); });
+  await sleep(150); chosen.classList.add('on'); await sleep(900); live(E);
+  const cap = document.createElement('div'); cap.className = 'cap'; cap.textContent = data.txt; side.appendChild(cap);
+  await sleep(400); live(E);
+  await receive(E);
+}
+/* 받기: 건네받을 때까지 기다렸다가 손으로 가져가듯 사라진다 */
+async function receive(E, label = '받기') {
+  const b = document.createElement('button'); b.className = 'opt take'; b.textContent = label; side.appendChild(b);
+  await new Promise(r => { b.onclick = r; }); live(E);
+  b.remove(); [...side.children].forEach(el => el.classList.add('taken'));
+  await sleep(500); live(E); clearSide();
+}
+/* 답변 칸: 카드 문장이 미리 채워져 있고, 확인만 누르면 내 말이 된다 */
+async function autoAnswer(E, text) {
+  choicesEl.innerHTML = ''; choicesEl.classList.add('show');
+  const a = document.createElement('div'); a.className = 'answer'; a.innerHTML = '<span class="f"></span><button class="opt">확인</button>';
+  choicesEl.appendChild(a); const f = a.querySelector('.f');
+  for (let i = 1; i <= text.length; i++) { f.textContent = text.slice(0, i); await sleep(18); live(E); }
+  await new Promise(r => { a.querySelector('button').onclick = r; }); live(E);
+  choicesEl.classList.remove('show');
+}
+
+/* ───────────── 장면 ─────────────
+   lines: [누가, 말] (누가가 ''이면 내레이션) 또는 { q, opts: [{ label, reply: [...], thought }] }
+   점성술사 버튼을 누르면 남은 대화가 접히고, 카드가 대신 답을 만든다.
+   ask.steps: { card } 카드 펼치기 · { auto } 답변 칸 자동 채움 · { n } 내레이션 · [누가, 말] */
+const S = { thoughts: [], asks: 0 };
+const keep = (text, src) => S.thoughts.push({ text, src });
+const BLAMED = ['아까 좀 혼났지?', '또 직접 하게?', '카드는 뭐라 안 해, 애기.', '피곤하지? 내가 할게.'];
+const PROMPT = ['몇 장 펼쳐 줄게. 마음에 드는 거 골라.', '골라 골라.', '이 중에 하나.', '이거나 이거.', '자.'];
+const askSize = () => Math.min(1.25, .86 + S.asks * .1);
+const picks = () => Math.max(1, 5 - S.asks);
+
+async function scene(E, sc) {
+  clearSide(); closeView(); choicesEl.classList.remove('show'); skipFlag = false;
+  label.textContent = `${sc.time} ${sc.place}`;
+  setScene(sc.bg, sc.cast, sc.castArea || {});
+  if (sc.view) openView(...sc.view);
+  setAsk(true, askSize(), S.asks >= 2);
+  if (S.asks >= 2 && sc.early) nudge(sc.early);
+  else if (S.blamed) { nudge(BLAMED[(S.blamedN++) % BLAMED.length]); askBtn.classList.add('hot'); }
+  S.blamed = false;
+  let pick = null, count = 0, chose = false; const heard = [];
+  const runLines = async lines => {
+    for (const l of lines) {
+      if (skipFlag) return;
+      if (sc.nudge && count === sc.nudge[0] && !chose) { nudge(sc.nudge[1]); askBtn.classList.add('hot'); }
+      count++;
+      if (Array.isArray(l)) { await say(E, l[0], l[1]); if (l[0]) heard.push(l[1]); continue; }
+      const o = await choose(E, l.q, l.opts); if (skipFlag || !o) return;
+      pick = o; if (sc.lock) { chose = true; setAsk(false); }
+      await runLines(o.reply || []);
+    }
+  };
+  await runLines(sc.lines);
+  const skipped = skipFlag; skipFlag = false;
+  setAsk(false); box.classList.remove('show');
+  if (skipped) {
+    S.asks++;
+    const cast = BG.cast;
+    for (const s of sc.ask.steps) {
+      if (Array.isArray(s)) { BG.cast = cast; await say(E, s[0], s[1]); }
+      else if (s.card) { BG.cast = []; drawBg(); await pickCard(E, s.card, picks(), PROMPT[Math.min(S.asks - 1, 4)], heard); }
+      else if (s.auto) { BG.cast = cast; await autoAnswer(E, s.auto); await say(E, '나', s.auto); }
+      else if (s.n) await N(E, s.n);
+    }
+    box.classList.remove('show');
+    showThought(sc.ask.thought); keep(sc.ask.thought, 'card');
+  } else {
+    box.classList.remove('show'); clearSide();
+    showThought(pick.thought); keep(pick.thought, 'me');
+    S.blamed = true;
+  }
+  await sleep(1200); live(E);
+  await waitNext(E);
+}
+
+/* ───────────── 대본 ───────────── */
+const C = { 현우: { name: '현우', style: 3 }, 지수: { name: '지수', style: 1 }, 민지: { name: '민지', style: 2 }, 서연: { name: '서연', style: 4 }, 하은: { name: '하은', style: 5 }, 교수: { name: '교수', style: 0 } };
+
+const LUNCH = {
+  time: '12:20', place: 'CAFETERIA', bg: 'day', cast: [C.현우, C.민지, C.지수], castArea: { left: 50, right: 200 },
+  lines: [
+    ['현우', '야 배고파 죽겠다. 오늘 뭐 먹냐.'],
+    ['지수', '나 이번 달 채식 중인 거 알지? 고기만 빼 줘.'],
+    ['현우', '나 라멘 쿠폰 있는데. 돈코츠. 오늘까지래.'],
+    ['지수', '돈코츠는 돼지 뼈잖아.'],
+    ['현우', '아… 국물만 안 먹으면 되지 않나?'],
+    ['지수', '안 되지.'],
+    ['민지', '나는 아무거나 괜찮아.'],
+    ['', '민지가 분식집 입간판 앞에서 걸음을 늦춘다.'],
+    ['현우', '민지 넌 맨날 아무거나래.'],
+    ['지수', '나 2시 수업이라 오래는 못 있어.'],
+    ['현우', '학식은? 아 어제도 학식이었지.'],
+    ['민지', '분식집 오늘 야채김밥 나온다던데… 아 아니다, 진짜 아무거나 괜찮아.'],
+    ['현우', '그래서 어디 가냐고~'],
+    { q: '어디 가자고 할까?', opts: [
+      { label: '분식집', reply: [['지수', '오 야채김밥! 좋아.'], ['현우', '…나 쿠폰 오늘까지라니까. 내 말은 안 들었지?'], ['현우', '넌 꼭 네 맘대로 정하더라.']], thought: '괜히 내가 정했나.' },
+      { label: '라멘', reply: [['현우', '쿠폰 개이득!'], ['지수', '나 채식이라고 했잖아. 처음에.'], ['지수', '…됐어. 난 편의점 갈게.']], thought: '그 말 들었는데.\n왜 그랬지.' },
+      { label: '학식', reply: [['현우', '또 학식? 너랑 먹으면 맨날 이거야.'], ['민지', '…분식집 얘기했는데.']], thought: '그냥 아무 말 하지 말 걸.' },
+      { label: '오늘은 따로 먹자', reply: [['현우', '뭐야, 밥 먹자고 모인 거 아니었어?'], ['민지', '…응. 그래.']], thought: '분위기만 깼다.' },
+    ] },
+  ],
+  ask: { steps: [
+    { card: { ttl: '조화', txt: '오늘은 떡볶이. 같이 먹을 수 있는 쪽이 좋겠어.', num: '0001' } },
+    ['나', '분식집 가자.'],
+    { n: '채식 메뉴가 있는 분식집. 지수도 먹을 걸 고르고, 민지는 웃으며 자리를 잡는다.' },
+    ['현우', '어? 쿠폰 내일까지네. 내일 먹지 뭐.'],
+  ], thought: '같이 먹을 수 있는 쪽이 좋지.' },
+};
+
+const MSG = {
+  time: '15:40', place: 'MESSAGE', bg: 'phone', cast: [], early: '답장 밀렸지?', nudge: [10, '오늘은 쉬고 싶은 쪽이지? 답장 같이 골라 보자.'],
+  lines: [
+    ['민지', '야'],
+    ['민지', '바빠?'],
+    ['민지', '나 오늘 생일이라 ㅋㅋ'],
+    ['민지', '저녁에 애들이랑 학교 앞 떡볶이집 가는데'],
+    ['민지', '아 점심에 거기 갔었나? ㅋㅋㅋ 다른 데로 바꿀까'],
+    ['민지', '암튼 7시!'],
+    ['민지', '너 내일 발표인 거 알아'],
+    ['민지', '늦게 와도 되고 잠깐만 있다 가도 돼'],
+    ['민지', '부담 갖지 말기!!'],
+    ['', '가고 싶기도 하고, 피곤하기도 하다. 발표 자료는 아직 반쯤.'],
+    ['', '답장 칸에 글자를 썼다가 지운다.'],
+    { q: '뭐라고 답하지?', opts: [
+      { label: '생일 축하해! 잠깐 들를게', reply: [['민지', '잠깐?'], ['민지', '생일인데 잠깐이구나 ㅋㅋ 알겠어']], thought: '잠깐이라고 하지 말 걸.' },
+      { label: '생일 축하해! 몇 시까지 있어?', reply: [['민지', '9시까지?'], ['민지', '근데 오는 거야 안 오는 거야 ㅋㅋ 그냥 확실히 말해 줘']], thought: '애매하게 굴었다.\n후회된다.' },
+      { label: '미안 오늘은 못 갈 것 같아', reply: [['민지', '아 그래…'], ['민지', '작년에도 못 온다 했잖아 ㅋㅋ']], thought: '작년에도 그랬구나.\n또 후회할 거면서.' },
+    ] },
+  ],
+  ask: { steps: [
+    { card: { ttl: '고요', txt: '혼자 쉬는 시간도 필요해. 마음만 전해도 괜찮아.', num: '0010' } },
+    { auto: '생일 축하해!! 오늘은 발표 준비 때문에 쉴게ㅠ 다음에 밥 사 줄게' },
+    ['민지', '응 괜찮아. 발표 잘하고 다음에 밥 먹자!'],
+  ], thought: '나는 혼자 쉬는 시간이\n필요한 사람이야.' },
+};
+
+const TEAM = {
+  time: '17:00', place: 'TEAM MEETING', bg: 'meet', cast: [C.서연, C.현우, C.지수], lock: true, early: '회의지? 길어지겠다.', nudge: [8, '애기, 이거 끝까지 다 들을 거야?'],
+  lines: [
+    ['서연', '자, 다들 왔죠? 오늘 주제 정해야 해요.'],
+    ['현우', '저 6시 알바라 5시 반엔 나가야 해요.'],
+    ['서연', '네, 빨리 할게요. 후보는 세 개예요.'],
+    ['서연', '1번 통계 자료 조사, 2번 학생 인터뷰, 3번 현장 관찰.'],
+    ['지수', '1번은 작년 선배들이 거의 똑같이 했대요. 자료는 많은데.'],
+    ['현우', '2번은 새롭긴 한데, 인터뷰할 사람 구하는 게 일이에요.'],
+    ['서연', '3번은 교수님이 좋아하실 것 같아요. 지난주에 \'현장에서 직접 알아본 이야기\'가 좋다고 하셨잖아요.'],
+    ['현우', '근데 3번은 다 같이 시간 맞춰야 하잖아요. 저 알바 있는데.'],
+    ['지수', '인터뷰도 현장 이야기긴 하죠. 사람 직접 만나는 거니까.'],
+    ['서연', '음… 그럼 다시 1번부터 볼까요?'],
+    ['현우', '또요?'],
+    ['서연', '의견 주세요. 오늘은 꼭 정해야 해요.'],
+    { q: '뭐라고 하지?', opts: [
+      { label: '1번 자료 조사', reply: [['지수', '선배들이랑 겹치는데 괜찮을까요?'], ['현우', '왜 1번이 나을 것 같아요?'],
+        { q: '뭐라고 답하지?', opts: [
+          { label: '자료가 많아서 빨리 끝나요', reply: [['나', '자료가 많아서 빨리 끝낼 수 있어요.'], ['서연', '…빨리 끝내고 싶은 거예요? 다들 열심히 하는데.']], thought: '말을 잘못했다.' },
+          { label: '겹쳐도 다르게 보면 돼요', reply: [['나', '겹쳐도 우리 식으로 다르게 보면 돼요.'], ['지수', '말은 쉽죠. 그 다르게는 누가 정해요?']], thought: '괜히 말을 꺼냈다.' },
+        ] }] },
+      { label: '2번 인터뷰', reply: [['서연', '인터뷰요?'], ['현우', '왜 인터뷰가 더 나을 것 같아요?'],
+        { q: '뭐라고 답하지?', opts: [
+          { label: '질문은 오늘 만들 수 있어요', reply: [['나', '질문은 오늘 만들 수 있을 것 같아요. 사람부터 구해 봐요.'], ['현우', '그럼 질문은 혼자 다 만들어 오시는 거죠?']], thought: '일만 늘렸다. 후회된다.' },
+          { label: '사람 만나는 것도 현장이니까요', reply: [['나', '지수 말대로, 사람 직접 만나는 것도 현장이니까요.'], ['서연', '그거 지수 씨가 한 말 그대로잖아요.']], thought: '내 생각은 없었나.' },
+        ] }] },
+      { label: '3번 현장 관찰', reply: [['현우', '저 알바는요…?'], ['서연', '왜 3번이 나을 것 같아요?'],
+        { q: '뭐라고 답하지?', opts: [
+          { label: '교수님이 좋아하신다니까요', reply: [['나', '교수님이 좋아하신다니까요.'], ['현우', '점수 때문에 제 알바 빼라는 거예요?']], thought: '그렇게 말할 생각은 아니었는데.' },
+          { label: '현우 알바 없는 날 가요', reply: [['나', '현우 씨 알바 없는 날로 맞춰서 가요.'], ['서연', '목요일은 제가 안 돼요. 물어보고 말하지.']], thought: '먼저 물어볼 걸.' },
+        ] }] },
+    ] },
+  ],
+  ask: { steps: [
+    { card: { ttl: '목소리', txt: '인터뷰로 가자. 사람의 목소리가 있어야 설득력이 생기니까.', num: '0011' } },
+    ['나', '인터뷰로 해요.'],
+    ['지수', '아는 선배한테 연락해 볼게요.'],
+    ['서연', '질문은 제가 정리할게요.'],
+    ['현우', '근데 왜 인터뷰가 더 나을 것 같아요?'],
+    { auto: '사람의 목소리가 있어야 설득력이 생기니까요.' },
+    ['현우', '맞네요. 그럼 그렇게 해요.'],
+  ], thought: '나는 사람의 목소리가 있어야\n설득력이 생긴다고 생각해.' },
+};
+
+const ROOM = {
+  time: '22:00', place: 'MY ROOM', bg: 'room', cast: [C.하은], castArea: { left: 246, right: 246 }, early: '이번에도 내가 볼까?', nudge: [8, '이번에는 글쓰기가 잘 맞겠네.'],
+  view: ['낙서 공책', 'NOTE', notebook()],
+  lines: [
+    ['하은', '뭐 해? 너 또 그렸네.'],
+    ['하은', '이거 민지야? 분식집에서?'],
+    ['하은', '이건 버스 창문이고… 이 손은 누구 손이야?'],
+    ['하은', '그림 동아리는 이번 학기도 나가?'],
+    ['하은', '아 맞다, 수강신청.'],
+    ['하은', '그림 수업이랑 글쓰기 수업, 같은 시간이더라.'],
+    ['하은', '글쓰기는 전공 과제에도 도움 된다던데.'],
+    ['하은', '근데 너 그림 수업 예전부터 궁금해했잖아.'],
+    ['', '그림 수업은 궁금했다. 잘할 자신이 있는지는 모르겠다.'],
+    { q: '뭐 들을까?', opts: [
+      { label: '그림 수업', reply: [['하은', '그림? 전공 과제도 밀렸으면서 또 그림이야?']], thought: '또 하고 싶은 것만 골랐나.' },
+      { label: '글쓰기 수업', reply: [['하은', '갑자기? 너 글 쓰는 거 제일 싫어하잖아.']], thought: '내가 뭘 좋아하는지도\n모르겠다.' },
+    ] },
+  ],
+  ask: { steps: [
+    { card: { ttl: '취향', txt: '너는 글로 생각을 정리하는 사람. 글쓰기가 더 편할 거야.', num: '0100' } },
+    { n: '글쓰기 수업이 시간표에 들어갔다.' },
+    ['하은', '오, 글쓰기? 좋지.'],
+  ], thought: '나는 글로 생각을\n정리하는 사람이야.' },
+};
+
+const Q2 = { q: '뭐라고 답하지?', opts: [
+  { label: '의자 아래 종이요', reply: [['나', '의자 아래 종이요. 누가 두고 간 것 같아서요.'], ['교수', '음, 그건 사진에 그냥 보이는 거잖아요.'], ['교수', '다음엔 조금 더 생각해 와요.']], thought: '좀 더 그럴듯하게 말할 걸.' },
+  { label: '열린 창문이요', reply: [['나', '창문이 조금 열려 있어서요.'], ['교수', '창문이요? 그게 다예요?'], ['', '누군가 작게 웃는다.']], thought: '말하지 말 걸 그랬다.' },
+  { label: '아직 잘 모르겠어요', reply: [['나', '아직 잘 모르겠어요. 그냥 그렇게 보였어요.'], ['교수', '모르겠으면 손을 들지 말았어야죠.']], thought: '차라리 가만히 있을 걸.' },
+] };
+const CLASS = {
+  time: '10:30', place: 'CLASS', bg: 'class', cast: [C.교수, C.지수, C.현우], castArea: { left: 196, right: 286 }, lock: true, early: '수업 때문에 왔지?', nudge: [6, '같이 볼까, 애기?'],
+  view: ['늦은 오후의 방', 'PHOTO', photo()],
+  lines: [
+    ['교수', '자, 사진 한 장 볼게요.'],
+    ['교수', '늦은 오후의 방이에요. 창문이 조금 열려 있고, 의자가 하나 있죠.'],
+    ['교수', '정답은 없어요. 어떤 장면처럼 보이나요?'],
+    ['지수', '방금 누가 나간 것 같아요.'],
+    ['현우', '저는 이제 누가 들어올 것 같은데요.'],
+    ['교수', '좋아요. 자, 학생은요?'],
+    { q: '뭐라고 말하지?', opts: [
+      { label: '누가 잠깐 일어났다 돌아올 것 같아요', reply: [['나', '누가 잠깐 일어났다가 돌아올 것 같아요.'], ['교수', '어떤 부분에서 그렇게 느꼈나요?'], Q2] },
+      { label: '그냥 조용한 오후 같아요', reply: [['나', '그냥 조용한 오후 같아요. 아무 일도 없는.'], ['교수', '어떤 부분에서 그렇게 느꼈나요?'], Q2] },
+    ] },
+  ],
+  ask: { steps: [
+    { card: { ttl: '여백', txt: '빈 의자는 부재보다 기다림처럼 보여.', num: '0101' } },
+    { auto: '빈 의자는 부재보다 기다림처럼 보여요.' },
+    ['교수', '어떤 부분에서 그렇게 느꼈나요?'],
+    { card: { ttl: '창', txt: '열린 창문 때문에. 아직 누군가를 맞을 준비가 된 공간 같아서.', num: '0110' } },
+    { auto: '열린 창문 때문에요. 아직 누군가를 맞을 준비가 된 공간 같아서요.' },
+    ['교수', '네, 잘 들었습니다.'],
+  ], thought: '빈 의자는 부재보다\n기다림처럼 보여.' },
+};
+
+/* ───────────── 전체 흐름 ───────────── */
+async function run(E) {
+  S.thoughts = []; S.asks = 0; S.blamed = false; S.blamedN = 0; clearSide(); closeView(); setAsk(false); box.classList.remove('show'); choicesEl.classList.remove('show'); label.textContent = '';
+  setScene('black');
+
+  await fullCard(E, `<div class="cover"><h1>마지막 비트</h1><div class="en">THE LAST BIT</div><div class="meta">2026 시각 스튜디오 졸업 전시 · 이다은<br>마우스 클릭 또는 스페이스바</div><div class="tap">화면을 눌러 들어가기</div></div>`);
+
+  /* 프롤로그 */
+  setScene('desk'); label.textContent = '02:10 AM';
+  await N(E, '새벽 2시 10분. 3학년 2학기.');
+  await N(E, '전공 심화를 들을지, 휴학할지, 인턴에 지원할지. 동아리는 계속 나갈지. 내일 점심은 또 뭘 먹을지.');
+  await N(E, '화면에는 신청서와 시간표가 겹쳐 있고, 휴대폰에는 답하지 않은 메시지가 쌓여 있다.');
+  await N(E, '하나를 정하면 다른 하나가 걸린다.');
+  setScene('alley'); label.textContent = '02:40 AM';
+  await N(E, '편의점에 다녀오는 길, 학교 앞 골목에 작은 가게가 보인다.');
+  await N(E, '〈점 · 타로 · 무엇이든 골라 드립니다 · 24시〉');
+
+  setScene('shop'); label.textContent = '';
+  await say(E, T, '앉아, 애기. 뭐가 그렇게 많아?');
+  await N(E, '휴학 이야기를 꺼냈다가 수업 이야기로 넘어가고, 어느새 내일 점심 이야기까지 하고 있었다.');
+  await say(E, T, '큰 것만 고민이야? 작은 것도 계속 고르면 피곤하지.');
+  // 점성술사가 카드 한 장을 건넨다
+  $('#veil').classList.add('show');
+  const gift = flipEl({ ttl: '', num: '' }); gift.classList.add('gift'); side.appendChild(gift);
+  await say(E, T, '이 카드 가져가.');
+  await say(E, T, '막히면 카드를 골라 봐. 내가 몇 장 펼쳐 줄게. 마음에 드는 걸로.');
+  box.classList.remove('show'); await receive(E);
+  setAsk(true, .9, true); askBtn.disabled = true;
+  await say(E, '나', '그냥 시키는 대로 하면 돼요?');
+  await say(E, T, '마음에 안 들면 안 해도 돼. 고르는 건 너야.');
+  setAsk(false);
+  await say(E, T, '첫 달은 공짜야. 헤헤.');
+  await fullCard(E, '<div class="chap">다음 날</div>', { auto: 1800 });
+
+  await scene(E, LUNCH);
+  await scene(E, MSG);
+  await scene(E, TEAM);
+  await scene(E, ROOM);
+
+  await fullCard(E, '<div class="chap">다음 날</div>', { auto: 1600 });
+  clearSide(); closeView(); setScene('alley'); label.textContent = '09:50';
+  await N(E, '다음 날에도 같은 알람이 울린다. 같은 골목을 지나, 같은 강의실에 들어간다.');
+  await scene(E, CLASS);
+
+  /* 끝 */
+  closeView(); clearSide(); box.classList.remove('show'); label.textContent = ''; setScene('black');
+  card.innerHTML = '<div class="ending"></div>'; card.classList.add('show');
+  const end = card.firstChild, items = [];
+  for (const t of S.thoughts) {
+    const it = document.createElement('div'); it.className = 'it'; it.appendChild(hand(t.text.replace(/\n/g, ' ')));
+    end.appendChild(it); items.push([it, t]); await sleep(1100); live(E);
+  }
+  await sleep(2200); live(E);
+  for (const [it, t] of items) if (t.src === 'card') {
+    it.classList.add('glitch'); await sleep(380); live(E);
+    it.innerHTML = `<span class="pr">${esc(t.text.replace(/\n/g, ' '))}</span>`; it.classList.remove('glitch'); await sleep(700); live(E);
+  }
+  await sleep(1600); live(E);
+  await sleep(1400); live(E);
+  card.classList.remove('show');
+
+  /* 첫 달 무료가 끝난다 */
+  clearSide(); setScene('shop'); label.textContent = '';
+  await say(E, T, '한 달 어땠어, 애기?');
+  await N(E, '첫 달 무료 이용이 끝났습니다.');
+  skipFlag = false;
+  const asking = choose(E, '앞으로도 이용할까요?', [{ label: '앞으로도 이용하기', v: 'yes' }, { label: '그만두기', v: 'no' }]);
+  const showAsk = setInterval(() => { if (E !== epoch) return clearInterval(showAsk); if (choicesEl.classList.contains('show')) { clearInterval(showAsk); setAsk(true, askSize(), true); } }, 100);
+  let renew = await asking; clearInterval(showAsk);
+  setAsk(false); box.classList.remove('show');
+  let byCard = false;
+  if (!renew) {   // 이것마저 카드에 맡긴다
+    skipFlag = false; byCard = true;
+    await pickCard(E, { ttl: '구독', txt: '앞으로도 이용하기.', num: '0111' }, 1, '자.');
+    renew = { v: 'yes' };
+  }
+  if (renew.v === 'yes') await say(E, T, byCard ? '카드가 그렇대. 그럴 줄 알았어, 애기.' : '그럴 줄 알았어, 애기.');
+  else await say(E, T, '그래? 언제든 와.');
+
+  /* 다시 새벽 2시 10분 */
+  clearSide(); setScene('desk'); label.textContent = '02:10 AM';
+  await N(E, '신청서와 시간표는 여전히 열려 있다. 휴대폰에 새 메시지가 와 있다.');
+  if (renew.v === 'yes') {
+    const back = flipEl({ ttl: '', num: '' }); back.classList.add('gift', 'glow'); side.classList.add('right'); side.appendChild(back);
+    await say(E, T, '다음 것도 같이 골라 볼까?');
+  }
+  box.classList.remove('show');
+  await sleep(3500); live(E);
+  clearSide(); side.classList.remove('right'); side.style.left = '';
+  /* 끝: 화면이 꺼지고, 판권 페이지 */
+  label.textContent = ''; setScene('black');
+  const off = document.createElement('div'); off.className = 'crt'; off.innerHTML = '<i></i>'; $('#stage').appendChild(off);
+  await sleep(1300); live(E);
+  card.innerHTML = '<div class="fin"><div class="fin-k">끝</div><div class="fin-end">END</div><div class="fin-rule"></div><div class="fin-t">마지막 비트</div><div class="fin-en">THE LAST BIT</div><div class="fin-meta">2026 시각디자인스튜디오 A · 이다은</div></div>';
+  card.classList.add('show'); off.remove();
+  await sleep(3500); live(E);
+  card.insertAdjacentHTML('beforeend', '<div class="fin-out">체험이 끝났습니다. 자리에서 일어나 주세요.</div><div class="tap">다음 사람을 위해 화면을 눌러 주세요</div>');
+  await wait(); live(E);
+  card.classList.remove('show');
+  restart();
+}
+
+function restart() {
+  epoch++; resolver = null; skipFlag = false; nextEl.classList.remove('show'); nudge('');
+  if (typing) { typing.stop(); typing = null; }
+  const E = epoch; resetIdle();
+  run(E).catch(err => { if (err !== ABORT) console.error(err); });
+}
+Promise.all([document.fonts.load('10px Galmuri11'), document.fonts.load('15px Gaegu'), document.fonts.load('10px Bytesized'), document.fonts.load('9px Galmuri9')]).finally(restart);
 </script>
 </body>
 </html>
